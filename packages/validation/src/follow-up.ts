@@ -45,3 +45,7 @@ export const followUpDraft = z.object({
 });
 
 export type FollowUpDraft = z.infer<typeof followUpDraft>;
+
+export function followUpReplySubject(subject: string): string {
+	return `Re: ${subject.trim().replace(/^(?:re:\s*)+/i, "")}`;
+}

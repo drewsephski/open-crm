@@ -110,6 +110,7 @@ OPEN → DRAFTING → READY → APPROVED → SENT → REPLIED
   Use the new email action for those records.
 - A changed Gmail subject starts another conversation.
   The reply action requires the original subject.
+  Reply subjects use exactly one `Re: ` prefix, including existing approved drafts with repeated prefixes.
 - Imports emit creation events in the same transaction as each new record.
   Re-imports emit no creation events for existing records. Research remains optional.
 - Detection reads every active contact on each pass. It is fine for tens of

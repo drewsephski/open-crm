@@ -1,6 +1,9 @@
 import { GMAIL_DRAFT_SCOPE, OUTLOOK_DRAFT_SCOPE } from "@crm/auth/scopes";
 import { type Db, FollowUpStatus } from "@crm/db";
-import { parseFollowUpSignal } from "@crm/validation/follow-up";
+import {
+	followUpReplySubject,
+	parseFollowUpSignal,
+} from "@crm/validation/follow-up";
 import {
 	BadGatewayException,
 	ConflictException,
@@ -256,8 +259,7 @@ export class FollowUpMailboxService {
 			const subject = signal.threadSubject ?? message.subject;
 			if (
 				!subject ||
-				row.draftSubject.replace(/^re:\s*/i, "") !==
-					subject.replace(/^re:\s*/i, "")
+				followUpReplySubject(row.draftSubject) !== followUpReplySubject(subject)
 			) {
 				throw new ConflictException(
 					"Keep the original email subject to create a threaded Gmail reply.",
@@ -265,7 +267,7 @@ export class FollowUpMailboxService {
 			}
 			const raw = gmailReplyRaw({
 				to: row.contact.email,
-				subject: row.draftSubject,
+				subject: followUpReplySubject(row.draftSubject),
 				body: row.draftBody,
 				replyTo: message.rfcMessageId,
 				rootMessageId: message.thread.rootMessageId,

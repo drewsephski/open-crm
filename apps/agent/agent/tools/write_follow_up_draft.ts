@@ -15,7 +15,7 @@ export default defineTool({
 			.min(1)
 			.max(FOLLOW_UP_DRAFT_LIMITS.subject)
 			.describe(
-				"Reuse the existing thread's subject with 'Re: ' when there is one.",
+				"Use the reply subject from the brief. Keep exactly one 'Re: ' prefix for an existing thread.",
 			),
 		body: z
 			.string()

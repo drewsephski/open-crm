@@ -9,6 +9,7 @@ import {
 } from "bun:test";
 import { GMAIL_DRAFT_SCOPE, OUTLOOK_DRAFT_SCOPE } from "@crm/auth/scopes";
 import { db } from "@crm/db";
+import { parseFollowUpSignal } from "@crm/validation/follow-up";
 import { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { CompanyDirectoryService } from "../src/companies/company-directory.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
@@ -362,6 +363,53 @@ describe("mailbox reply drafts", () => {
 			"previous mailbox draft request",
 		);
 		expect(fetcher).toHaveBeenCalledTimes(2);
+	});
+
+	it("opens replies to prefixed threads and repairs repeated reply prefixes", async () => {
+		grant();
+		let raw = "";
+		const fetcher = spyOn(globalThis, "fetch").mockImplementation(
+			Object.assign(
+				async (
+					input: Parameters<typeof fetch>[0],
+					init?: Parameters<typeof fetch>[1],
+				) => {
+					if (String(input).endsWith("?format=metadata"))
+						return Response.json({ threadId: "provider-thread" });
+					const payload = JSON.parse(String(init?.body));
+					raw = Buffer.from(payload.message.raw, "base64url").toString();
+					return Response.json({
+						id: "reply-draft",
+						message: { id: "reply-message" },
+					});
+				},
+				{ preconnect: fetch.preconnect },
+			),
+		);
+		restores.push(() => fetcher.mockRestore());
+		for (const subject of [
+			"Re: Quote",
+			"Re: Re: Quote",
+			"RE:RE: Quote",
+			"Quote",
+		]) {
+			const row = await followUp();
+			await db.followUp.update({
+				where: { id: row.id },
+				data: {
+					draftSubject: subject,
+					signal: {
+						...parseFollowUpSignal(row.signal),
+						threadSubject: "Re: Quote",
+					},
+				},
+			});
+			expect((await service.openDraft(row.id, userId)).provider).toBe("gmail");
+			expect(raw).toContain(
+				`Subject: =?UTF-8?B?${Buffer.from("Re: Quote").toString("base64")}?=`,
+			);
+		}
+		expect(fetcher).toHaveBeenCalledTimes(8);
 	});
 
 	it("rejects a recipient change before claiming a draft", async () => {

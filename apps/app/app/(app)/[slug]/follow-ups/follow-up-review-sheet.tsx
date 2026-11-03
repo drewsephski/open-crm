@@ -28,6 +28,7 @@ import {
 import { Spinner } from "@crm/ui/components/spinner";
 import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { Textarea } from "@crm/ui/components/textarea";
+import { followUpReplySubject } from "@crm/validation/follow-up";
 import { useMutation } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { toast } from "sonner";
@@ -91,7 +92,9 @@ function Review({
 
 	const [subject, setSubject] = useState(
 		row.draft?.subject ??
-			(row.signal.threadSubject ? `Re: ${row.signal.threadSubject}` : ""),
+			(row.signal.threadSubject
+				? followUpReplySubject(row.signal.threadSubject)
+				: ""),
 	);
 	const [body, setBody] = useState(row.draft?.body ?? "");
 
