@@ -98,6 +98,7 @@ function Review({
 	const name = personName(row.contact);
 	const to = row.contact.email ?? "";
 	const editable = EDITABLE.has(row.status);
+	const draftEditable = editable && row.status !== "APPROVED";
 	const ready = subject.trim() !== "" && body.trim() !== "" && to !== "";
 	const status = FOLLOW_UP_STATUS[row.status];
 	const where = mailbox ? MAILBOX_LABEL[mailbox] : "your email app";
@@ -121,6 +122,24 @@ function Review({
 			onError: failed,
 		}),
 	);
+	const openMailboxDraft = useMutation(
+		trpc.followUps.openMailboxDraft.mutationOptions({ onError: failed }),
+	);
+	const openEmail = async (needsApproval: boolean, threaded: boolean) => {
+		const popup = window.open("", "_blank");
+		if (popup) popup.opener = null;
+		try {
+			if (needsApproval)
+				await approve.mutateAsync({ id: row.id, subject, body });
+			const url = threaded
+				? (await openMailboxDraft.mutateAsync({ id: row.id })).url
+				: composeUrl(mailbox, to, subject, body);
+			if (popup) popup.location.href = url;
+			else toast.error("Allow popups, then open the approved email again.");
+		} catch {
+			popup?.close();
+		}
+	};
 	const save = useMutation(
 		trpc.followUps.saveDraft.mutationOptions({
 			onSuccess: () => settled("Draft saved.", false),
@@ -154,6 +173,7 @@ function Review({
 
 	const busy =
 		approve.isPending ||
+		openMailboxDraft.isPending ||
 		save.isPending ||
 		markSent.isPending ||
 		dismiss.isPending ||
@@ -279,7 +299,7 @@ function Review({
 						<Input
 							id={subjectId}
 							value={subject}
-							disabled={!editable}
+							disabled={!draftEditable}
 							onChange={(event) => setSubject(event.target.value)}
 						/>
 					</Field>
@@ -289,7 +309,7 @@ function Review({
 							id={bodyId}
 							value={body}
 							rows={12}
-							disabled={!editable}
+							disabled={!draftEditable}
 							placeholder={
 								row.status === "DRAFTING"
 									? "The draft appears here when it is ready."
@@ -317,7 +337,7 @@ function Review({
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="start">
 							<DropdownMenuItem
-								disabled={!ready}
+								disabled={!ready || !draftEditable}
 								onSelect={() => save.mutate({ id: row.id, subject, body })}
 							>
 								Save draft
@@ -362,41 +382,36 @@ function Review({
 						</DropdownMenuContent>
 					</DropdownMenu>
 
-					{row.status === "APPROVED" ? (
-						<div className="flex gap-2">
-							<Button asChild variant="outline">
-								<a
-									href={composeUrl(mailbox, to, subject, body)}
-									target="_blank"
-									rel="noreferrer"
-								>
-									Open in {where} again
-								</a>
+					<div className="flex flex-wrap gap-2">
+						{mailbox && row.signal.threadId ? (
+							<Button
+								disabled={busy || !ready}
+								onClick={() => void openEmail(row.status !== "APPROVED", true)}
+							>
+								{busy ? <Spinner data-icon="inline-start" /> : null}
+								{row.status === "APPROVED"
+									? "Open reply draft"
+									: "Approve and open reply draft"}
 							</Button>
+						) : null}
+						<Button
+							variant={mailbox && row.signal.threadId ? "outline" : "default"}
+							disabled={busy || !ready}
+							onClick={() => void openEmail(row.status !== "APPROVED", false)}
+						>
+							{row.status === "APPROVED"
+								? "Open new email"
+								: "Approve and open new email"}
+						</Button>
+						{row.status === "APPROVED" ? (
 							<Button
 								disabled={busy}
 								onClick={() => markSent.mutate({ id: row.id })}
 							>
 								Mark as sent
 							</Button>
-						</div>
-					) : ready && !busy ? (
-						<Button asChild>
-							<a
-								href={composeUrl(mailbox, to, subject, body)}
-								target="_blank"
-								rel="noreferrer"
-								onClick={() => approve.mutate({ id: row.id, subject, body })}
-							>
-								Approve and open in {where}
-							</a>
-						</Button>
-					) : (
-						<Button disabled>
-							{busy ? <Spinner data-icon="inline-start" /> : null}
-							Approve and open in {where}
-						</Button>
-					)}
+						) : null}
+					</div>
 				</SheetFooter>
 			) : null}
 		</>

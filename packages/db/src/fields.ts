@@ -14,7 +14,23 @@ import type {
 	FieldValueModel,
 } from "./generated/prisma/models";
 
-export * from "./fields-shape";
+export {
+	columnFor,
+	FIELD_ENTITIES,
+	FIELD_TYPES,
+	type FieldEntityName,
+	type FieldTypeName,
+	type FieldValueColumn,
+	FieldValueError,
+	type FieldValueJson,
+	type FieldValueWrite,
+	fieldKeyFromLabel,
+	RECORD_ID_COLUMNS,
+	type RecordIdColumn,
+	recordColumn,
+	typeLabel,
+	usesOptions,
+} from "./fields-shape";
 
 export type FieldDefinitionWithOptions = FieldDefinitionModel & {
 	options: FieldOptionModel[];

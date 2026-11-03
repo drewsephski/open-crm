@@ -56,9 +56,19 @@ OPEN → DRAFTING → READY → APPROVED → SENT → REPLIED
   └──────────┴────────┴──→ RESOLVED (the condition cleared by itself)
 ```
 
-- **Nothing is sent by the CRM.** Approve opens the rep's own Gmail or Outlook
-  compose window with the approved text. The mailbox sync then shows the send, and
-  the next pass marks the row `SENT`. Without a mailbox the rep marks it sent.
+- **Nothing is sent by the CRM.** Approval completes before opening the mailbox.
+  The reply action creates a Gmail or Outlook draft in the synced thread.
+  The new email action opens a compose window.
+  The rep sends the message. Mailbox sync confirms the send.
+  Without a mailbox, the rep marks it sent.
+- Reply drafts require `gmail.compose` or `Mail.ReadWrite`.
+  Existing accounts reconnect to grant draft access.
+  The approver opens only their own mailbox draft.
+  Approved text cannot change through Save draft.
+- Repeated opens reuse the saved mailbox draft.
+  An uncertain provider request blocks automatic retries.
+  The administrator checks the mailbox Drafts folder before clearing `mailboxDraftAttemptedAt` in Prisma Studio.
+  Keep the marker after a draft exists. Save the provider draft link instead of creating another draft.
 - **Approval is recorded** — `approvedById`, `approvedAt`, and the exact text in
   `draftSubject`/`draftBody`.
 - **A transition only happens from the status the caller saw.** Every write is an
@@ -89,9 +99,12 @@ OPEN → DRAFTING → READY → APPROVED → SENT → REPLIED
 
 ## Known limits
 
-- The compose window starts a new email. It does not reply inside the existing
-  Gmail thread, because the mailbox grant is read-only.
-- Imports do not emit `contact.created` events, so deployed team agents do not
-  react to imported records.
+- Reply drafts need a thread synced from the approver's mailbox.
+  Demo messages and imported notes lack provider message IDs.
+  Use the new email action for those records.
+- A changed Gmail subject starts another conversation.
+  The reply action requires the original subject.
+- Imports emit creation events in the same transaction as each new record.
+  Re-imports emit no creation events for existing records. Research remains optional.
 - Detection reads every active contact on each pass. It is fine for tens of
   thousands of contacts and is not built for millions.

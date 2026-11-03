@@ -125,5 +125,45 @@ fix before a customer sees it. Each reply you get is a line for the sales call.
 - No billing. Invoice the setup fee and the monthly fee by hand (Stripe Invoices
   or Payment Links).
 - No multi-tenant hosting. Each customer is a separate deployment.
-- No in-thread Gmail replies. Approve opens a new compose window.
+- Threaded replies need mailbox draft access. Reconnect existing Google or Microsoft accounts.
 - No SMS or phone follow-ups.
+
+## Manual pilot billing
+
+Create each invoice as a draft in the billing provider.
+Use the customer's legal name, billing address, billing email, and agreed start date.
+Review those details before sending the invoice.
+
+| Invoice | Line item | Amount | Timing |
+| --- | --- | --- | --- |
+| Setup | Founding pilot setup | $750 | Before setup |
+| Months 1–3 | Founding pilot service | $250 per month | Monthly from the agreed start date |
+| Month 4 onward | Follow-up service, up to 3 users | $400 per month | Monthly |
+
+Record the invoice ID, service period, due date, payment status, and next invoice date in the customer handover.
+Record the day-14 guarantee decision and any setup refund in that handover.
+Stop future invoices when the customer ends service.
+This process does not charge a customer automatically.
+
+## Deployment handover
+
+Record one row per customer. Keep all secrets in the provider's secret store.
+
+| Required record | Evidence |
+| --- | --- |
+| App, API, and agent projects | Three deployment URLs |
+| Isolated database | Customer-specific project and database name |
+| Sign-in allow-list | Exact approved addresses or customer domain |
+| Google OAuth | Customer-owned client and API callback URL |
+| Slack, when used | API callback registered in the selected Slack app |
+| Model credentials | Successful draft session ID |
+| Context.dev | Verified key saved through Settings → General |
+| Bridge and cron secrets | Authenticated health checks |
+| Mailbox | Successful sync and an unsent reply draft |
+| Billing | Draft setup invoice and next invoice date |
+
+Use `API_URL` plus `/api/auth/callback/google` for Google.
+Use `API_URL` plus `/api/auth/callback/microsoft` for Microsoft.
+Use `API_URL` plus `/api/auth/callback/slack` for Slack.
+Keep existing callback URLs until each deployment uses the new callback.
+Do not share a database between customers.

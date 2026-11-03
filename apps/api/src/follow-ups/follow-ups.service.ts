@@ -244,7 +244,7 @@ export class FollowUpsService {
 	async saveDraft(input: FollowUpDraftInput, userId: string) {
 		return this.transition(
 			input.id,
-			EDITABLE,
+			APPROVABLE,
 			{
 				draftSubject: input.subject,
 				draftBody: input.body,

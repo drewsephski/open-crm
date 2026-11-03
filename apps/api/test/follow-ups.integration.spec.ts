@@ -8,7 +8,7 @@ import {
 	RecordSource,
 } from "@crm/db";
 import { followUpActiveKey } from "@crm/db/follow-ups";
-import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
+import { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ConversionService } from "../src/currency/conversion.service";
 import { FollowUpsService } from "../src/follow-ups/follow-ups.service";
 import {
@@ -40,7 +40,8 @@ const agent = {
 
 const conversion = new ConversionService(db);
 const followUps = new FollowUpsService(db, conversion, agent);
-const imports = new ImportsService(db, conversion, agent);
+const importAgent = new AgentTriggerService(db);
+const imports = new ImportsService(conversion, importAgent);
 
 const SIGNAL = {
 	evidence: "email",
@@ -54,6 +55,27 @@ const SIGNAL = {
 } as const;
 
 async function clear() {
+	const contacts = await db.contact.findMany({
+		where: { email: { endsWith: `@${DOMAIN}` } },
+		select: { id: true },
+	});
+	const companies = await db.company.findMany({
+		where: { domain: DOMAIN },
+		select: { id: true },
+	});
+	const deals = await db.deal.findMany({
+		where: { ownerId: userId },
+		select: { id: true },
+	});
+	await db.agentTask.deleteMany({
+		where: {
+			OR: [
+				{ contactId: { in: contacts.map((row) => row.id) } },
+				{ companyId: { in: companies.map((row) => row.id) } },
+				{ dealId: { in: deals.map((row) => row.id) } },
+			],
+		},
+	});
 	await db.followUp.deleteMany({
 		where: { contact: { email: { endsWith: `@${DOMAIN}` } } },
 	});
@@ -185,7 +207,27 @@ describe("ImportsService", () => {
 		expect(again.contactsCreated).toBe(0);
 		expect(again.contactsUpdated).toBe(1);
 		expect(again.dealsCreated).toBe(0);
-		expect(scans.length).toBeGreaterThanOrEqual(2);
+		const events = await db.agentTask.findMany({
+			where: {
+				kind: "agent-event",
+				OR: [
+					{ contactId: contact.id },
+					{ companyId: contact.companyId },
+					{ dealId: contact.deals[0]?.dealId },
+				],
+			},
+			select: { reason: true },
+		});
+		expect(events.map((event) => event.reason).sort()).toEqual([
+			"company.created",
+			"contact.created",
+			"deal.created",
+		]);
+		expect(
+			await db.agentTask.count({
+				where: { contactId: contact.id, kind: "identify" },
+			}),
+		).toBe(0);
 	});
 });
 

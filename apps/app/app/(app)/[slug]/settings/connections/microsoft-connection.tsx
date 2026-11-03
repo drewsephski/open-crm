@@ -2,7 +2,7 @@
 
 import Warning from "@carbon/icons-react/es/Warning";
 import { authClient } from "@crm/auth/client";
-import { MICROSOFT_SYNC_SCOPES } from "@crm/auth/scopes";
+import { MICROSOFT_SYNC_SCOPES, OUTLOOK_DRAFT_SCOPE } from "@crm/auth/scopes";
 import { Alert, AlertDescription, AlertTitle } from "@crm/ui/components/alert";
 import {
 	AlertDialog,
@@ -89,7 +89,7 @@ function ConnectMicrosoft({
 
 		const { error } = await authClient.linkSocial({
 			provider: "microsoft",
-			scopes: [...MICROSOFT_SYNC_SCOPES],
+			scopes: [...MICROSOFT_SYNC_SCOPES, OUTLOOK_DRAFT_SCOPE],
 			callbackURL: `${origin}/${slug}/settings/connections/microsoft`,
 			errorCallbackURL: `${origin}/${slug}/settings/connections/microsoft?provider=microsoft`,
 		});
@@ -107,8 +107,8 @@ function ConnectMicrosoft({
 					</div>
 				</CardTitle>
 				<CardDescription>
-					Read-only Outlook mail. Only conversations with companies in the CRM
-					are stored.
+					Outlook email sync. Approved follow-ups create mailbox drafts. You
+					send each message from Outlook.
 				</CardDescription>
 
 				<CardAction>

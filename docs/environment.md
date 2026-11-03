@@ -43,6 +43,11 @@ the three that is genuinely optional on its own — set it to your tenant's GUID
 refuse other tenants at Microsoft instead of at `ALLOWED_SIGN_IN`. There is **no
 Microsoft equivalent of `hd`**: `tenantId` is the whole of it.
 
+Google requests `gmail.compose` for approved reply drafts.
+Microsoft requests `Mail.ReadWrite` for approved reply drafts.
+The CRM creates drafts and never calls a send endpoint.
+Existing accounts reconnect before using reply drafts.
+
 **Neither pair is required, but an install wants one of them or an SSO provider** —
 with none, the sign-in page says so by name rather than rendering nothing.
 

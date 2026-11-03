@@ -11,12 +11,14 @@ import type { z } from "zod";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { restMeta } from "../trpc/openapi";
+import { FollowUpMailboxService } from "./follow-up-mailbox.service";
 import {
 	followUpDismissInput,
 	followUpDraftInput,
 	followUpIdInput,
 	followUpListInput,
 	followUpListOutput,
+	followUpMailboxDraftOutput,
 	followUpMutationOutput,
 	followUpScanOutput,
 	followUpSnoozeInput,
@@ -29,6 +31,8 @@ import { FollowUpsService } from "./follow-ups.service";
 export class FollowUpsRouter {
 	constructor(
 		@Inject(FollowUpsService) private readonly followUps: FollowUpsService,
+		@Inject(FollowUpMailboxService)
+		private readonly mailbox: FollowUpMailboxService,
 	) {}
 
 	@Query({
@@ -112,6 +116,14 @@ export class FollowUpsRouter {
 	})
 	async requestDraft(@Input() input: z.infer<typeof followUpIdInput>) {
 		return this.followUps.requestDraft(input.id);
+	}
+
+	@Mutation({ input: followUpIdInput, output: followUpMailboxDraftOutput })
+	async openMailboxDraft(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof followUpIdInput>,
+	) {
+		return this.mailbox.openDraft(input.id, ctx.user.id);
 	}
 
 	@Mutation({

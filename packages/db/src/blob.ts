@@ -2,8 +2,6 @@ import { createHash } from "node:crypto";
 import { isMirrored } from "./images";
 import { safeFetch } from "./safe-fetch";
 
-export { isMirrored, isOptimizable } from "./images";
-
 const MAX_BYTES = 3 * 1024 * 1024;
 const TIMEOUT_MS = 15_000;
 

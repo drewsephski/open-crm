@@ -132,3 +132,5 @@ export const followUpMutationOutput = z.object({
 });
 
 export const followUpScanOutput = z.object({ requested: z.literal(true) });
+
+export const followUpMailboxDraftOutput = z.object({ url: z.string().url() });

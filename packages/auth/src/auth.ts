@@ -12,9 +12,11 @@ import { AUTH_COOKIE_PREFIX } from "./cookies";
 import { env } from "./env";
 import { ensureWorkspaceMembership } from "./organization";
 import {
+	GMAIL_DRAFT_SCOPE,
 	GOOGLE_PROVIDER_ID,
 	MICROSOFT_PROVIDER_ID,
 	MICROSOFT_SYNC_SCOPES,
+	OUTLOOK_DRAFT_SCOPE,
 	SLACK_PROVIDER_ID,
 	SYNC_SCOPES,
 } from "./scopes";
@@ -40,7 +42,7 @@ if (env.google) {
 	const google: NonNullable<typeof socialProviders.google> = {
 		...env.google,
 
-		scope: [...SYNC_SCOPES],
+		scope: [...SYNC_SCOPES, GMAIL_DRAFT_SCOPE],
 
 		accessType: "offline",
 	};
@@ -57,7 +59,7 @@ if (env.microsoft) {
 		clientSecret: env.microsoft.clientSecret,
 		tenantId: env.microsoft.tenantId,
 
-		scope: [...MICROSOFT_SYNC_SCOPES],
+		scope: [...MICROSOFT_SYNC_SCOPES, OUTLOOK_DRAFT_SCOPE],
 
 		prompt: "select_account",
 

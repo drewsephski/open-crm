@@ -24,7 +24,7 @@ import { dashboardSummaryInput, dashboardSummaryOutput } from "../dashboard/dash
 import { dealListInput, dealListOutput, dealIdInput, dealDetailOutput, dealCreateInput, dealCreateOutput, dealUpdateArgs, dealMutateOutput, setStageInput, dealSetStageOutput, dealContactsInput, dealContactOptionsOutput, dealAttachContactInput, dealContactLinkOutput, dealDetachContactInput, dealContactRoleInput, dealContactRoleOutput, dealBulkOwnerInput, dealBulkResultOutput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
 import { enrichmentQueueInput } from "@crm/validation/enrichment-queue";
 import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput, fieldEntityInput, fieldFiltersOutput, fieldIdInput, fieldCoverageOutput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput, fieldReorderOutput, fieldDeleteOutput, fieldBackfillOutput } from "../fields/fields.contracts";
-import { followUpListInput, followUpListOutput, followUpSummaryOutput, followUpDraftInput, followUpMutationOutput, followUpIdInput, followUpDismissInput, followUpSnoozeInput, followUpScanOutput } from "../follow-ups/follow-ups.contracts";
+import { followUpListInput, followUpListOutput, followUpSummaryOutput, followUpDraftInput, followUpMutationOutput, followUpIdInput, followUpDismissInput, followUpSnoozeInput, followUpMailboxDraftOutput, followUpScanOutput } from "../follow-ups/follow-ups.contracts";
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { importInput, importOutput } from "../imports/imports.contracts";
@@ -570,6 +570,10 @@ const appRouter = t.router({
     requestDraft: publicProcedure
       .input(followUpIdInput)
       .output(followUpMutationOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    openMailboxDraft: publicProcedure
+      .input(followUpIdInput)
+      .output(followUpMailboxDraftOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     scanNow: publicProcedure
       .output(followUpScanOutput)

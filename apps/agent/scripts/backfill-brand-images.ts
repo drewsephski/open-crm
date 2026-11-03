@@ -1,6 +1,10 @@
 import { db } from "@crm/db";
-import { blobEnabled, isMirrored, mirror } from "@crm/db/blob";
-import { COMPANY_IMAGE_FIELDS, type CompanyImageField } from "@crm/db/images";
+import { blobEnabled, mirror } from "@crm/db/blob";
+import {
+	COMPANY_IMAGE_FIELDS,
+	type CompanyImageField,
+	isMirrored,
+} from "@crm/db/images";
 import { z } from "zod";
 import { brandToUpdate } from "../agent/lib/brand-mapping";
 
