@@ -9,17 +9,42 @@ import {
 } from "bun:test";
 import { GMAIL_DRAFT_SCOPE, OUTLOOK_DRAFT_SCOPE } from "@crm/auth/scopes";
 import { db } from "@crm/db";
+import { AgentTriggerService } from "../src/agent/agent-trigger.service";
+import { CompanyDirectoryService } from "../src/companies/company-directory.service";
+import { ActivityStampService } from "../src/crm/activity-stamp.service";
+import { EnrichmentLogService } from "../src/crm/enrichment-log.service";
 import {
 	FollowUpMailboxService,
 	gmailReplyRaw,
 } from "../src/follow-ups/follow-up-mailbox.service";
+import { GmailClient } from "../src/google/gmail.client";
+import { GmailSyncService } from "../src/google/gmail-sync.service";
+import { MailboxApiClient } from "../src/mailbox/mailbox-api.client";
+import { MailboxMatchService } from "../src/mailbox/mailbox-match.service";
 import { MailboxTokenService } from "../src/mailbox/mailbox-token.service";
 import { rootMessageIdFrom } from "../src/mailbox/message-text";
+import { SyncStateService } from "../src/mailbox/sync-state.service";
+import { ThreadWriterService } from "../src/mailbox/thread-writer.service";
 
 const suffix = crypto.randomUUID();
 const userId = `mailbox-${suffix}`;
 const tokens = new MailboxTokenService(db);
 const service = new FollowUpMailboxService(db, tokens);
+const agent = new AgentTriggerService(db);
+const stamp = new ActivityStampService(db);
+const match = new MailboxMatchService(
+	db,
+	new CompanyDirectoryService(agent),
+	agent,
+	new EnrichmentLogService(db, stamp),
+);
+const gmailSync = new GmailSyncService(
+	db,
+	new GmailClient(new MailboxApiClient()),
+	tokens,
+	new SyncStateService(db),
+	new ThreadWriterService(db, match, stamp),
+);
 let contactId = "";
 let threadId = "";
 const restores: (() => void)[] = [];
@@ -36,7 +61,7 @@ beforeAll(async () => {
 	threadId = (
 		await db.emailThread.create({
 			data: {
-				rootMessageId: `<root-${suffix}@contact.test>`,
+				rootMessageId: `root-${suffix}@contact.test`,
 				contactId,
 				firstMessageAt: new Date(),
 				lastMessageAt: new Date(),
@@ -65,6 +90,7 @@ afterAll(async () => {
 	await db.followUp.deleteMany({ where: { contactId } });
 	await db.emailThread.deleteMany({ where: { id: threadId } });
 	await db.contact.deleteMany({ where: { id: contactId } });
+	await db.mailboxSync.deleteMany({ where: { userId } });
 	await db.user.deleteMany({ where: { id: userId } });
 });
 
@@ -196,6 +222,79 @@ describe("mailbox reply drafts", () => {
 		expect(
 			(await db.followUp.findUniqueOrThrow({ where: { id: row.id } })).status,
 		).toBe("APPROVED");
+	});
+
+	it("excludes a created and edited unsent Gmail draft from synced history", async () => {
+		grant();
+		const row = await followUp();
+		const sync = await db.mailboxSync.create({
+			data: { userId, source: "gmail", cursor: "100", autoCreate: false },
+		});
+		const before = await db.emailMessage.count({ where: { threadId } });
+		const fetcher = spyOn(globalThis, "fetch").mockImplementation(
+			Object.assign(
+				async (input: Parameters<typeof fetch>[0]) => {
+					const url = new URL(String(input));
+					if (url.pathname.endsWith("/profile"))
+						return Response.json({
+							emailAddress: `${userId}@example.test`,
+							historyId: "101",
+						});
+					if (url.pathname.endsWith("/history"))
+						return Response.json({
+							historyId: "101",
+							history: [
+								{ messagesAdded: [{ message: { id: "edited-unsent-draft" } }] },
+							],
+						});
+					if (url.searchParams.get("format") === "metadata")
+						return Response.json({ threadId: "provider-thread" });
+					if (url.pathname.endsWith("/drafts"))
+						return Response.json({
+							id: "unsent-draft",
+							message: { id: "unsent-message" },
+						});
+					expect(url.pathname).toEndWith("/messages/edited-unsent-draft");
+					return Response.json({
+						id: "edited-unsent-draft",
+						labelIds: ["DRAFT"],
+						internalDate: String(Date.now()),
+						payload: {
+							headers: [
+								{
+									name: "Message-ID",
+									value: `<unsent-${suffix}@example.test>`,
+								},
+								{ name: "References", value: `<root-${suffix}@contact.test>` },
+								{ name: "From", value: `${userId}@example.test` },
+								{ name: "To", value: `${suffix}@contact.test` },
+								{ name: "Subject", value: "Re: Quote" },
+							],
+							body: {
+								data: Buffer.from("Edited unsent text").toString("base64url"),
+							},
+						},
+					});
+				},
+				{ preconnect: fetch.preconnect },
+			),
+		);
+		restores.push(() => fetcher.mockRestore());
+		await service.openDraft(row.id, userId);
+		expect((await gmailSync.sync(sync)).messagesWritten).toBe(0);
+		expect(await db.emailMessage.count({ where: { threadId } })).toBe(before);
+		expect(
+			await db.emailMessage.count({
+				where: { gmailMessageId: "edited-unsent-draft" },
+			}),
+		).toBe(0);
+		expect(
+			(await db.followUp.findUniqueOrThrow({ where: { id: row.id } })).status,
+		).toBe("APPROVED");
+		expect(
+			(await db.mailboxSync.findUniqueOrThrow({ where: { id: sync.id } }))
+				.cursor,
+		).toBe("101");
 	});
 
 	it("keeps approval and exposes provider failures", async () => {

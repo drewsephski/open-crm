@@ -371,6 +371,7 @@ export class AgentTriggerService {
 				where: {
 					id: followUp.id,
 					status: { in: [FollowUpStatus.OPEN, FollowUpStatus.READY] },
+					mailboxDraftAttemptedAt: null,
 				},
 				data: {
 					status: FollowUpStatus.DRAFTING,

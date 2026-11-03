@@ -357,6 +357,11 @@ export class FollowUpsService {
 
 	async requestDraft(id: string) {
 		const followUp = await this.find(id);
+		if (followUp.mailboxDraftAttemptedAt) {
+			throw new ConflictException(
+				"This follow-up has a mailbox draft request. Keep the approved text and edit the message in your mailbox.",
+			);
+		}
 
 		if (!(DRAFTABLE as readonly FollowUpStatus[]).includes(followUp.status)) {
 			throw new ConflictException(

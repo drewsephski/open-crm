@@ -65,6 +65,8 @@ OPEN → DRAFTING → READY → APPROVED → SENT → REPLIED
   Existing accounts reconnect to grant draft access.
   The approver opens only their own mailbox draft.
   Approved text cannot change through Save draft.
+  A mailbox draft request blocks human edits and agent redrafts.
+  Gmail sync excludes unsent drafts from conversation history and send confirmation.
 - Repeated opens reuse the saved mailbox draft.
   An uncertain provider request blocks automatic retries.
   The administrator checks the mailbox Drafts folder before clearing `mailboxDraftAttemptedAt` in Prisma Studio.

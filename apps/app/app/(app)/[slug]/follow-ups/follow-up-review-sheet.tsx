@@ -354,6 +354,7 @@ function Review({
 							</DropdownMenuItem>
 							{row.status === "OPEN" || row.status === "READY" ? (
 								<DropdownMenuItem
+									disabled={row.mailboxDraftLocked}
 									onSelect={() => redraft.mutate({ id: row.id })}
 								>
 									{row.draft

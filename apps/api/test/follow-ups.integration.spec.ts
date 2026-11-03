@@ -273,6 +273,20 @@ describe("FollowUpsService", () => {
 			},
 		});
 		await followUps.snooze(row.id, 3);
+		await expect(followUps.requestDraft(row.id)).rejects.toThrow(
+			"mailbox draft",
+		);
+		await db.followUp.update({
+			where: { id: row.id },
+			data: { status: FollowUpStatus.READY },
+		});
+		await expect(followUps.requestDraft(row.id)).rejects.toThrow(
+			"mailbox draft",
+		);
+		expect(await importAgent.followUpDraftRequested(row)).toBe(false);
+		expect(
+			await db.agentTask.count({ where: { contactId: row.contactId } }),
+		).toBe(0);
 		await expect(
 			followUps.saveDraft({ ...draft, body: "Changed text." }, userId),
 		).rejects.toThrow("mailbox draft");
