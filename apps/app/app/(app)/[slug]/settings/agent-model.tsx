@@ -111,7 +111,7 @@ export function AgentModel() {
 			<CardHeader>
 				<CardTitle>Research agent</CardTitle>
 				<CardDescription>
-					The model the agent thinks with, routed through the Vercel AI Gateway.
+					The agent uses the Vercel AI SDK to call Anthropic directly.
 				</CardDescription>
 			</CardHeader>
 
@@ -174,7 +174,7 @@ export function AgentModel() {
 
 				<p className="text-muted-foreground text-xs">
 					{unavailable
-						? `Could not reach the AI Gateway to list models. The agent is still running ${effectiveId}.`
+						? `Could not reach the model catalog. The agent uses ${effectiveId}.`
 						: effective
 							? `${effectiveId} · ${contextHint(effective.contextWindowTokens)}${
 									priceHint(effective) ? ` · ${priceHint(effective)}` : ""

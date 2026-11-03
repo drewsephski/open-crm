@@ -1,3 +1,4 @@
+import { isAnthropicAgentModel } from "@crm/db/settings";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { Cache } from "cache-manager";
@@ -46,7 +47,11 @@ const gatewayCatalog = z
 	.catch({ data: [] });
 
 function usable(model: GatewayModel): boolean {
-	return model.type === "language" && model.tags.includes("tool-use");
+	return (
+		isAnthropicAgentModel(model.id) &&
+		model.type === "language" &&
+		model.tags.includes("tool-use")
+	);
 }
 
 function toCatalogModel(model: GatewayModel): CatalogModel {

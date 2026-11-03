@@ -8,7 +8,7 @@ import {
 export const SETTINGS_ID = "app";
 
 export const DEFAULT_AGENT_MODEL = {
-	id: "zai/glm-5.2-fast",
+	id: "anthropic/claude-haiku-5.5",
 	contextWindowTokens: 1_000_000,
 } as const;
 
@@ -18,13 +18,21 @@ export interface AgentModelSetting {
 	isDefault: boolean;
 }
 
+export function isAnthropicAgentModel(id: string): boolean {
+	return (
+		id.startsWith("anthropic/") &&
+		!id.endsWith("-batch") &&
+		!id.endsWith("-fast")
+	);
+}
+
 export async function readAgentModel(db: Db): Promise<AgentModelSetting> {
 	const row = await db.appSetting.findUnique({
 		where: { id: SETTINGS_ID },
 		select: { agentModelId: true, agentModelContextWindow: true },
 	});
 
-	if (!row?.agentModelId) {
+	if (!row?.agentModelId || !isAnthropicAgentModel(row.agentModelId)) {
 		return { ...DEFAULT_AGENT_MODEL, isDefault: true };
 	}
 
@@ -157,4 +165,72 @@ export async function writeArchiveRetentionDays(
 export function maskKey(key: string): string {
 	const trimmed = key.trim();
 	return trimmed.length > 4 ? `••••${trimmed.slice(-4)}` : "••••";
+}
+
+export type FollowUpScanState = {
+	scannedAt: Date | null;
+	error: string | null;
+};
+
+export async function readFollowUpScan(db: Db): Promise<FollowUpScanState> {
+	const row = await db.appSetting.findUnique({
+		where: { id: SETTINGS_ID },
+		select: { followUpsScannedAt: true, followUpsScanError: true },
+	});
+
+	return {
+		scannedAt: row?.followUpsScannedAt ?? null,
+		error: row?.followUpsScanError ?? null,
+	};
+}
+
+export async function claimFollowUpScan(
+	db: Db,
+	now: Date,
+	everyMs: number,
+): Promise<boolean> {
+	await db.appSetting.upsert({
+		where: { id: SETTINGS_ID },
+		create: { id: SETTINGS_ID },
+		update: {},
+	});
+
+	const { count } = await db.appSetting.updateMany({
+		where: {
+			id: SETTINGS_ID,
+			OR: [
+				{ followUpsScannedAt: null },
+				{ followUpsScannedAt: { lte: new Date(now.getTime() - everyMs) } },
+			],
+		},
+		data: { followUpsScannedAt: now },
+	});
+
+	return count > 0;
+}
+
+export async function requestFollowUpScan(db: Db): Promise<void> {
+	await db.appSetting.upsert({
+		where: { id: SETTINGS_ID },
+		create: { id: SETTINGS_ID },
+		update: { followUpsScannedAt: null },
+	});
+}
+
+export async function writeFollowUpScanError(
+	db: Db,
+	error: string | null,
+): Promise<void> {
+	await db.appSetting.updateMany({
+		where: { id: SETTINGS_ID },
+		data: { followUpsScanError: error?.slice(0, 500) ?? null },
+	});
+}
+
+export async function stampFollowUpScan(db: Db, now: Date): Promise<void> {
+	await db.appSetting.upsert({
+		where: { id: SETTINGS_ID },
+		create: { id: SETTINGS_ID, followUpsScannedAt: now },
+		update: { followUpsScannedAt: now },
+	});
 }

@@ -1,6 +1,7 @@
 import { db } from "@crm/db";
 import { websiteUrl } from "@crm/db/workspace";
 import { capabilitiesMarkdown } from "./capabilities";
+import { followUpPreamble } from "./follow-up-preamble";
 import { identity, usMarkdown, type WorkspaceIdentity } from "./workspace";
 
 export type Opened = {
@@ -10,6 +11,7 @@ export type Opened = {
 	budget?: number | null;
 	/** Set only for a `field-backfill` task — the custom field key(s) still blank on this record. */
 	fieldKeys?: string[] | null;
+	followUpId?: string | null;
 };
 
 export type Preamble = {
@@ -26,6 +28,15 @@ export async function sessionPreamble(
 	opened: Opened,
 ): Promise<Preamble> {
 	if (opened.kind === "workspace-profile") return workspacePreamble();
+	if (opened.kind === "follow-up" && opened.followUpId) {
+		const drafted = await followUpPreamble(opened.followUpId);
+		if (drafted) {
+			return {
+				markdown: `${drafted.markdown}\n\n${await closing()}`,
+				focus: drafted.focus,
+			};
+		}
+	}
 	if (record.contactId) return contactPreamble(record.contactId, opened);
 	if (record.companyId) return companyPreamble(record.companyId, opened);
 	if (record.dealId) return dealPreamble(record.dealId, opened);

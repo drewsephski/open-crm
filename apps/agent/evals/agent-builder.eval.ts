@@ -13,10 +13,10 @@ export default defineEval({
 		if (
 			!process.env.DATABASE_URL ||
 			!secret ||
-			(!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN)
+			!process.env.ANTHROPIC_API_KEY?.trim()
 		) {
 			t.skip(
-				"Requires DATABASE_URL, AGENT_BRIDGE_SECRET, and an AI Gateway credential.",
+				"Requires DATABASE_URL, AGENT_BRIDGE_SECRET, and ANTHROPIC_API_KEY.",
 			);
 			return;
 		}

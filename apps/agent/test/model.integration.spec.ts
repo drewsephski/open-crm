@@ -78,10 +78,32 @@ describe("the configured model", () => {
 	});
 
 	it("keeps one row rather than accumulating one per change", async () => {
-		await writeAgentModel(db, { id: "openai/gpt-5.5", contextWindowTokens: 1 });
-		await writeAgentModel(db, { id: "zai/glm-5.2", contextWindowTokens: 2 });
+		await writeAgentModel(db, {
+			id: "anthropic/claude-opus-5.5",
+			contextWindowTokens: 1,
+		});
+		await writeAgentModel(db, {
+			id: "anthropic/claude-sonnet-5.5",
+			contextWindowTokens: 2,
+		});
 
 		expect(await db.appSetting.count()).toBe(1);
-		expect((await readAgentModel(db)).id).toBe("zai/glm-5.2");
+		expect((await readAgentModel(db)).id).toBe("anthropic/claude-sonnet-5.5");
+	});
+
+	it("uses Haiku for a saved model from another provider", async () => {
+		await writeAgentModel(db, {
+			id: "zai/glm-5.2-fast",
+			contextWindowTokens: 200_000,
+		});
+
+		expect(await readAgentModel(db)).toEqual({
+			...DEFAULT_AGENT_MODEL,
+			isDefault: true,
+		});
+		expect(await selectedModel()).toEqual({
+			model: DEFAULT_AGENT_MODEL.id,
+			modelContextWindowTokens: DEFAULT_AGENT_MODEL.contextWindowTokens,
+		});
 	});
 });

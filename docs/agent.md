@@ -11,14 +11,21 @@ are in `docs/setup.md`.
 
 ## Model
 
-Default `zai/glm-5.2-fast`; `DEFAULT_AGENT_MODEL` in `@crm/db/settings` because the
+Default `anthropic/claude-haiku-5.5`; `DEFAULT_AGENT_MODEL` in `@crm/db/settings` because the
 agent and the API both need it.
 
 - **A row (`AppSetting`), not an env var**, via `defineDynamic` on `session.started`.
-  Open conversations keep their model — prompt caches are per model.
+  `lib/model.ts` stores the selection in durable session state.
+  Each `step.started` returns an `@ai-sdk/anthropic` model instance.
+  The provider receives native IDs, such as `claude-haiku-5-5`.
+  Anthropic calls require `ANTHROPIC_API_KEY` in development and deployments.
+  New sessions replace unsupported saved choices with the default.
+  Existing sessions acquire durable model state at their next step.
 - **`lib/model.ts` always sends `modelContextWindowTokens`**; eve never inherits it.
 - **A failed read logs and keeps the compiled fallback.** Never throws.
-- **The chooser offers only `tool-use` models** (`ModelCatalogService`).
+- **The chooser offers only Anthropic `tool-use` models** (`ModelCatalogService`).
+  The public AI Gateway catalog supplies metadata only. Batch and fast variants are excluded.
+  Model inference bypasses AI Gateway.
 - **Not a frontier model, deliberately** — refusing wrong answers is enforced by the
   tools and evidence model, not model strength.
 
@@ -56,7 +63,7 @@ agent and the API both need it.
 behind sixty LLM runs for 25 minutes (`test/lanes.integration.spec.ts`). **The row says
 what the work is; the lane only says whether it needs a conversation.**
 
-**Priority**: `brand` 900 · `portrait` 800 · `workspace` 500 · `requested` 300 ·
+**Priority**: `brand` 900 · `portrait` 800 · `workspace` 500 · `follow-up` 400 · `requested` 300 ·
 `meeting` 200 · `identify` 100 · `sweep` 50 · `companyProfile` 40 · `recheck` 0. The
 top two are what a rep reads *before* deciding what to open.
 
@@ -121,6 +128,14 @@ to ration and nobody to scope it to.
   that is a Vercel **serverless function** (`apps/api/api/index.ts`) — the tail of that
   chain is not guaranteed to run at all. A cron in the agent is the only trigger here
   that is a fact rather than a hope.
+
+### Follow-ups are detected on the dispatch tick
+
+`scanFollowUps` (`lib/follow-ups.ts`) runs before `drainAll`, at most every 15
+minutes, gated on `AppSetting.followUpsScannedAt`. It is SQL only: no session, no
+model, no credits. It opens, settles and closes `FollowUp` rows and queues a
+capped number of `follow-up` draft tasks. **`docs/follow-ups.md` is the whole
+account.**
 
 ### Stale rows are closed on the dispatch tick
 

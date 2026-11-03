@@ -95,6 +95,7 @@ const VERBS: ToolVerbs = {
 	identify_contact: "Put a name to the address",
 	record_fact: "Recorded what it found",
 	write_brief: "Wrote the background",
+	write_follow_up_draft: "Drafted a follow-up",
 	write_workspace_profile: "Wrote up who we are",
 	research_person: "Researched them on the web",
 	research_company: "Read the company's site",

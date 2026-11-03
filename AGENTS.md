@@ -15,6 +15,8 @@ context until you read them, and the rules in them are not optional.
 | `/settings/connections`, integrations, the intake endpoint | `docs/connections.md` |
 | The tracking script, the collector, form submissions | `docs/tracking.md` |
 | Running it locally, Google Cloud, DB commands, secrets | `docs/setup.md` |
+| Follow-up detection, drafts, the queue, CSV import | `docs/follow-ups.md` |
+| Selling it, the demo, onboarding a pilot customer | `docs/pilot.md` |
 | Anything that sends a telemetry event, or a new property on one | `docs/telemetry.md` |
 | `.github/workflows`, versions, changelog, how a change reaches `release` | `CONTRIBUTING.md` |
 

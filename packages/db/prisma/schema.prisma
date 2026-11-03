@@ -52,6 +52,10 @@ model User {
 
   apiKeys Apikey[]
 
+  followUpsApproved  FollowUp[] @relation("FollowUpApprover")
+  followUpsDismissed FollowUp[] @relation("FollowUpDismisser")
+  followUpsEdited    FollowUp[] @relation("FollowUpEditor")
+
   @@unique([email])
   @@map("user")
 }
@@ -456,6 +460,7 @@ model Company {
   emailThreads   EmailThread[]
   calendarEvents CalendarEvent[]
   fieldValues    FieldValue[]
+  followUps      FollowUp[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
@@ -520,6 +525,7 @@ model Contact {
   fieldValues     FieldValue[]
   visitors        TrackedVisitor[]   @relation("VisitorContact")
   submissions     FormSubmission[]   @relation("SubmissionContact")
+  followUps       FollowUp[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -1076,6 +1082,7 @@ model Deal {
   contacts    DealContact[]
   activities  Activity[]
   fieldValues FieldValue[]
+  followUps   FollowUp[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -1455,6 +1462,9 @@ model AppSetting {
   trackingConfigHash       String?
   trackingPaused           Boolean @default(false)
 
+  followUpsScannedAt DateTime?
+  followUpsScanError String?
+
   updatedAt DateTime @updatedAt
 
   @@map("appSetting")
@@ -1718,4 +1728,84 @@ model Apikey {
   @@index([configId])
   @@index([key])
   @@map("apikey")
+}
+
+enum FollowUpKind {
+  UNANSWERED
+  PROPOSAL
+  NO_REPLY
+  STALLED_DEAL
+  DORMANT
+  NEVER_CONTACTED
+}
+
+enum FollowUpStatus {
+  OPEN
+  DRAFTING
+  READY
+  APPROVED
+  SENT
+  REPLIED
+  SNOOZED
+  DISMISSED
+  RESOLVED
+}
+
+enum FollowUpDismissal {
+  NOT_RELEVANT
+  HANDLED
+  DO_NOT_CONTACT
+}
+
+model FollowUp {
+  id   String         @id @default(cuid())
+  kind FollowUpKind
+  status FollowUpStatus @default(OPEN)
+
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  activeKey String? @unique
+
+  reason   String
+  signal   Json
+  priority Int
+  quietSince DateTime
+
+  draftSubject String?
+  draftBody    String?
+  draftNote    String?
+  draftedAt    DateTime?
+  draftTaskId  String?
+  draftSessionId String?
+  draftError   String?
+  editedById   String?
+  editedBy     User?     @relation("FollowUpEditor", fields: [editedById], references: [id], onDelete: SetNull)
+
+  approvedById String?
+  approvedBy   User?     @relation("FollowUpApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt   DateTime?
+  sentAt       DateTime?
+  repliedAt    DateTime?
+
+  snoozedUntil  DateTime?
+  dismissedById String?
+  dismissedBy   User?              @relation("FollowUpDismisser", fields: [dismissedById], references: [id], onDelete: SetNull)
+  dismissedAt   DateTime?
+  dismissal     FollowUpDismissal?
+  resolvedAt    DateTime?
+  resolution    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, priority])
+  @@index([contactId, status])
+  @@index([dealId])
+  @@index([sentAt])
+  @@map("followUp")
 }

@@ -27,6 +27,13 @@ export const SEARCH_PARAM = {
 	overview: {
 		scope: "scope",
 	},
+	followUps: {
+		view: "view",
+		open: "followUp",
+	},
+	imports: {
+		step: "step",
+	},
 } as const;
 
 export const RESERVED_SEARCH_PARAM_KEYS: ReadonlySet<string> = new Set(

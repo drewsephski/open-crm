@@ -20,8 +20,10 @@ import { DatabaseModule } from "./database/database.module";
 import { DealsModule } from "./deals/deals.module";
 import { EnrichmentModule } from "./enrichment/enrichment.module";
 import { FieldsModule } from "./fields/fields.module";
+import { FollowUpsModule } from "./follow-ups/follow-ups.module";
 import { GoogleModule } from "./google/google.module";
 import { HealthModule } from "./health/health.module";
+import { ImportsModule } from "./imports/imports.module";
 import { LoggingModule } from "./logging/logging.module";
 import { logAuthRoute } from "./logging/request-logger.middleware";
 import { MailboxModule } from "./mailbox/mailbox.module";
@@ -66,6 +68,8 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		AgentModule,
 		EnrichmentModule,
 		DashboardModule,
+		FollowUpsModule,
+		ImportsModule,
 		SearchModule,
 		MailboxModule,
 		GoogleModule,

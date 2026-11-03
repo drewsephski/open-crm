@@ -1,9 +1,18 @@
-import { type Db, type FieldEntity, Prisma } from "@crm/db";
+import {
+	type Db,
+	type FieldEntity,
+	type FollowUpKind,
+	FollowUpStatus,
+	Prisma,
+} from "@crm/db";
 import { PRIORITY } from "@crm/db/agent-tasks";
 import { CRM_EVENT_CATALOG, type CrmEventType } from "@crm/db/crm-events";
 import { RECORD_ID_COLUMNS } from "@crm/db/fields";
+import { FOLLOW_UP_DRAFT } from "@crm/db/follow-ups";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
+import { requestFollowUpScan } from "@crm/db/settings";
 import { fieldBackfillPayload } from "@crm/validation/field-backfill";
+import type { FollowUpTaskPayload } from "@crm/validation/follow-up";
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { AGENT_DISPATCH } from "./agent-dispatch.config";
@@ -325,6 +334,73 @@ export class AgentTriggerService {
 			priority: PRIORITY.meeting,
 			budget: 10,
 		});
+	}
+
+	async followUpDraftRequested(followUp: {
+		id: string;
+		kind: FollowUpKind;
+		contactId: string;
+		companyId: string | null;
+		dealId: string | null;
+		reason: string;
+	}): Promise<boolean> {
+		const payload: FollowUpTaskPayload = {
+			followUpId: followUp.id,
+			kind: followUp.kind,
+		};
+
+		const queued = await this.db.$transaction(async (tx) => {
+			await lockIdempotencyKey(tx, `agent-task:follow-up:${followUp.id}`);
+
+			const task = await tx.agentTask.create({
+				data: {
+					contactId: followUp.contactId,
+					companyId: followUp.companyId,
+					dealId: followUp.dealId,
+					kind: "follow-up",
+					reason: followUp.reason,
+					payload,
+					priority: PRIORITY.followUp,
+					budget: FOLLOW_UP_DRAFT.budget,
+					dueAt: new Date(),
+				},
+				select: { id: true },
+			});
+
+			const { count } = await tx.followUp.updateMany({
+				where: {
+					id: followUp.id,
+					status: { in: [FollowUpStatus.OPEN, FollowUpStatus.READY] },
+				},
+				data: {
+					status: FollowUpStatus.DRAFTING,
+					draftTaskId: task.id,
+					draftError: null,
+				},
+			});
+
+			if (count === 0) {
+				await tx.agentTask.delete({ where: { id: task.id } });
+				return false;
+			}
+			return true;
+		});
+
+		if (queued) {
+			this.logger.log({
+				message: "Agent task queued",
+				kind: "follow-up",
+				followUpId: followUp.id,
+			});
+			this.poke();
+		}
+
+		return queued;
+	}
+
+	async followUpScanRequested(): Promise<void> {
+		await requestFollowUpScan(this.db);
+		this.poke();
 	}
 
 	builderConversationQueued(): void {
