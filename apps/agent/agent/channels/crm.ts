@@ -30,6 +30,7 @@ import {
 } from "../lib/dispatch";
 import { DISPATCH } from "../lib/dispatch-config";
 import { settle } from "../lib/enrichment";
+import { followUpSweep, scanFollowUps } from "../lib/follow-ups";
 import { finishRun, runResultOf } from "../lib/run-runtime";
 import { attribute } from "../lib/session-purpose";
 import { createSlackChannel } from "../lib/slack-membership";
@@ -159,6 +160,7 @@ export default defineChannel({
 					wedged,
 					overdueTasks: overdue,
 					...health,
+					followUps: followUpSweep(),
 				},
 				{ status: wedged || overdue > 0 ? 503 : 200 },
 			);
@@ -173,6 +175,7 @@ export default defineChannel({
 			waitUntil(
 				(async () => {
 					await reconcileStaleTasks();
+					await scanFollowUps();
 					await drainAll((task) =>
 						send(brief(task), {
 							auth: taskAuth(task),

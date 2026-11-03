@@ -24,8 +24,10 @@ import { dashboardSummaryInput, dashboardSummaryOutput } from "../dashboard/dash
 import { dealListInput, dealListOutput, dealIdInput, dealDetailOutput, dealCreateInput, dealCreateOutput, dealUpdateArgs, dealMutateOutput, setStageInput, dealSetStageOutput, dealContactsInput, dealContactOptionsOutput, dealAttachContactInput, dealContactLinkOutput, dealDetachContactInput, dealContactRoleInput, dealContactRoleOutput, dealBulkOwnerInput, dealBulkResultOutput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
 import { enrichmentQueueInput } from "@crm/validation/enrichment-queue";
 import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput, fieldEntityInput, fieldFiltersOutput, fieldIdInput, fieldCoverageOutput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput, fieldReorderOutput, fieldDeleteOutput, fieldBackfillOutput } from "../fields/fields.contracts";
+import { followUpListInput, followUpListOutput, followUpSummaryOutput, followUpDraftInput, followUpMutationOutput, followUpIdInput, followUpDismissInput, followUpSnoozeInput, followUpScanOutput } from "../follow-ups/follow-ups.contracts";
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
+import { importInput, importOutput } from "../imports/imports.contracts";
 import { mcpListOutput, mcpGetInput, mcpGetOutput, mcpToolsInput, mcpToolsOutput, mcpStartInput, mcpStartOutput, mcpReconnectInput, mcpReconnectOutput, mcpDisconnectInput, mcpDisconnectOutput, mcpReviewToolsInput, mcpReviewToolsOutput } from "../mcp/mcp.contracts";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
 import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
@@ -537,6 +539,42 @@ const appRouter = t.router({
       .output(fieldBackfillOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
+  followUps: t.router({
+    list: publicProcedure
+      .input(followUpListInput)
+      .output(followUpListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    summary: publicProcedure
+      .output(followUpSummaryOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    saveDraft: publicProcedure
+      .input(followUpDraftInput)
+      .output(followUpMutationOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    approve: publicProcedure
+      .input(followUpDraftInput)
+      .output(followUpMutationOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    markSent: publicProcedure
+      .input(followUpIdInput)
+      .output(followUpMutationOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    dismiss: publicProcedure
+      .input(followUpDismissInput)
+      .output(followUpMutationOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    snooze: publicProcedure
+      .input(followUpSnoozeInput)
+      .output(followUpMutationOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    requestDraft: publicProcedure
+      .input(followUpIdInput)
+      .output(followUpMutationOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    scanNow: publicProcedure
+      .output(followUpScanOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
   google: t.router({
     status: publicProcedure
       .output(googleConnectionStatusOutput)
@@ -566,6 +604,12 @@ const appRouter = t.router({
       .input(calendarEventInput)
       .output(calendarEventOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  imports: t.router({
+    contacts: publicProcedure
+      .input(importInput)
+      .output(importOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   mcp: t.router({
     list: publicProcedure

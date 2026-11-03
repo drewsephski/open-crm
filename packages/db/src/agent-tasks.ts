@@ -12,6 +12,7 @@ export const TASK_KINDS = [
 	"slack-channel-join",
 	"agent-event",
 	"mcp-tool-discovery",
+	"follow-up",
 ] as const;
 
 export type TaskKind = (typeof TASK_KINDS)[number];
@@ -62,4 +63,5 @@ export const PRIORITY = {
 	slackJoin: 950,
 	event: 700,
 	mcpDiscovery: 20,
+	followUp: 400,
 } as const;

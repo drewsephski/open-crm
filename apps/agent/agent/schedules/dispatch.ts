@@ -7,6 +7,7 @@ import {
 	queueDueAgentRuns,
 } from "../lib/custom-agent-dispatch";
 import { brief, drainAll, taskAuth } from "../lib/dispatch";
+import { scanFollowUps } from "../lib/follow-ups";
 import { reconcileStaleTasks } from "../lib/stale-tasks";
 
 export default defineSchedule({
@@ -18,6 +19,7 @@ export default defineSchedule({
 
 				(async () => {
 					await reconcileStaleTasks();
+					await scanFollowUps();
 					await drainAll((task) =>
 						to(crm, { taskId: task.id }).send(brief(task), {
 							auth: taskAuth(task, appAuth),

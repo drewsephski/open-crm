@@ -49,6 +49,7 @@ export default defineDynamic({
 					reason: attributeText.parse(attributes.reason),
 					budget,
 					fieldKeys: fieldKeys ? fieldKeys.split(",") : null,
+					followUpId: attributeText.parse(attributes.followUpId),
 				},
 			);
 

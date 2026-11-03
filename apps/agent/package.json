@@ -9,6 +9,7 @@
 		"backfill:images": "bun scripts/backfill-brand-images.ts",
 		"dev": "eve dev",
 		"dev:headless": "eve dev --no-ui",
+		"follow-ups:scan": "bun scripts/scan-follow-ups.ts",
 		"dispatch": "curl -fsS -X POST \"${AGENT_URL:-http://127.0.0.1:2000}/eve/v1/dev/schedules/dispatch\"",
 		"build": "eve build",
 		"start": "bun scripts/start.ts",

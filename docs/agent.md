@@ -56,7 +56,7 @@ agent and the API both need it.
 behind sixty LLM runs for 25 minutes (`test/lanes.integration.spec.ts`). **The row says
 what the work is; the lane only says whether it needs a conversation.**
 
-**Priority**: `brand` 900 · `portrait` 800 · `workspace` 500 · `requested` 300 ·
+**Priority**: `brand` 900 · `portrait` 800 · `workspace` 500 · `follow-up` 400 · `requested` 300 ·
 `meeting` 200 · `identify` 100 · `sweep` 50 · `companyProfile` 40 · `recheck` 0. The
 top two are what a rep reads *before* deciding what to open.
 
@@ -121,6 +121,14 @@ to ration and nobody to scope it to.
   that is a Vercel **serverless function** (`apps/api/api/index.ts`) — the tail of that
   chain is not guaranteed to run at all. A cron in the agent is the only trigger here
   that is a fact rather than a hope.
+
+### Follow-ups are detected on the dispatch tick
+
+`scanFollowUps` (`lib/follow-ups.ts`) runs before `drainAll`, at most every 15
+minutes, gated on `AppSetting.followUpsScannedAt`. It is SQL only: no session, no
+model, no credits. It opens, settles and closes `FollowUp` rows and queues a
+capped number of `follow-up` draft tasks. **`docs/follow-ups.md` is the whole
+account.**
 
 ### Stale rows are closed on the dispatch tick
 

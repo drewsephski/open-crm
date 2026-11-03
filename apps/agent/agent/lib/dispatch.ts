@@ -1,6 +1,7 @@
 import { EnrichmentStatus } from "@crm/db";
 import { DIRECT_KINDS } from "@crm/db/agent-tasks";
 import { fieldBackfillPayload } from "@crm/validation/field-backfill";
+import { followUpTaskPayload } from "@crm/validation/follow-up";
 import { APP_AUTH, type AppAuth } from "./app-auth";
 import { brandOutcome, runBrand } from "./brand";
 import { queueEventAgentRuns } from "./custom-agent-dispatch";
@@ -250,6 +251,11 @@ export function taskAuth(task: LeasedTask, base: AppAuth = APP_AUTH): AppAuth {
 		if (parsed.success) records.fieldKeys = parsed.data.keys.join(",");
 	}
 
+	if (task.kind === "follow-up") {
+		const parsed = followUpTaskPayload.safeParse(task.payload);
+		if (parsed.success) records.followUpId = parsed.data.followUpId;
+	}
+
 	return {
 		...base,
 		attributes: {
@@ -420,6 +426,8 @@ function work(
 			const keys = parsed.success ? parsed.data.keys.join(", ") : reason;
 			return `This record is missing a value for the custom field(s) ${keys}. Call list_fields for this record's type, read each field's brief, and call set_field_value only where you find real evidence — leave it blank rather than guess.`;
 		}
+		case "follow-up":
+			return "Prepare the follow-up email described in your instructions, for a rep to review and send. Read the history first, then call write_follow_up_draft exactly once. You cannot send email, and nothing you write leaves the CRM until a person approves it.";
 		default:
 			return `Handle this: ${reason}`;
 	}
