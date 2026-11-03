@@ -53,6 +53,7 @@ const ROW_SELECT = {
 	draftedAt: true,
 	draftSessionId: true,
 	draftError: true,
+	mailboxDraftAttemptedAt: true,
 	approvedAt: true,
 	approvedBy: { select: { name: true } },
 	sentAt: true,
@@ -254,6 +255,12 @@ export class FollowUpsService {
 				current === FollowUpStatus.OPEN || current === FollowUpStatus.DRAFTING
 					? FollowUpStatus.READY
 					: current,
+			(current) => {
+				if (current.mailboxDraftAttemptedAt)
+					throw new ConflictException(
+						"A mailbox draft is saved or pending. Edit it in your mailbox.",
+					);
+			},
 		);
 	}
 
@@ -269,6 +276,18 @@ export class FollowUpsService {
 				snoozedUntil: null,
 			},
 			() => FollowUpStatus.APPROVED,
+			(current) => {
+				if (
+					current.mailboxDraftAttemptedAt &&
+					(current.draftSubject !== input.subject ||
+						current.draftBody !== input.body ||
+						current.approvedById !== userId)
+				) {
+					throw new ConflictException(
+						"A mailbox draft is saved or pending. Keep the approved text and approver. Edit it in your mailbox.",
+					);
+				}
+			},
 		);
 
 		this.logger.log({
@@ -373,6 +392,9 @@ export class FollowUpsService {
 				reason: true,
 				approvedAt: true,
 				approvedById: true,
+				mailboxDraftAttemptedAt: true,
+				draftSubject: true,
+				draftBody: true,
 			},
 		});
 		if (!row) throw new NotFoundException("That follow-up no longer exists.");
@@ -384,6 +406,7 @@ export class FollowUpsService {
 		from: readonly FollowUpStatus[],
 		data: Prisma.FollowUpUpdateInput,
 		next: (current: FollowUpStatus) => FollowUpStatus,
+		validate?: (current: Awaited<ReturnType<FollowUpsService["find"]>>) => void,
 	) {
 		const current = await this.find(id);
 
@@ -393,11 +416,16 @@ export class FollowUpsService {
 			);
 		}
 
+		validate?.(current);
 		const status = next(current.status);
 
 		const updated = await this.db.$transaction(async (tx) => {
 			const { count } = await tx.followUp.updateMany({
-				where: { id, status: current.status },
+				where: {
+					id,
+					status: current.status,
+					mailboxDraftAttemptedAt: current.mailboxDraftAttemptedAt,
+				},
 				data: { status },
 			});
 			if (count === 0) return null;
@@ -440,6 +468,7 @@ export class FollowUpsService {
 			signal: parseFollowUpSignal(row.signal),
 			draft,
 			draftError: row.draftError,
+			mailboxDraftLocked: row.mailboxDraftAttemptedAt !== null,
 			approvedAt: row.approvedAt?.toISOString() ?? null,
 			approvedBy: row.approvedBy?.name ?? null,
 			sentAt: row.sentAt?.toISOString() ?? null,

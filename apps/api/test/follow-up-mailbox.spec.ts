@@ -14,6 +14,7 @@ import {
 	gmailReplyRaw,
 } from "../src/follow-ups/follow-up-mailbox.service";
 import { MailboxTokenService } from "../src/mailbox/mailbox-token.service";
+import { rootMessageIdFrom } from "../src/mailbox/message-text";
 
 const suffix = crypto.randomUUID();
 const userId = `mailbox-${suffix}`;
@@ -35,7 +36,7 @@ beforeAll(async () => {
 	threadId = (
 		await db.emailThread.create({
 			data: {
-				rootMessageId: `<${suffix}@contact.test>`,
+				rootMessageId: `<root-${suffix}@contact.test>`,
 				contactId,
 				firstMessageAt: new Date(),
 				lastMessageAt: new Date(),
@@ -177,8 +178,21 @@ describe("mailbox reply drafts", () => {
 				.mailboxDraftId,
 		).toBe("draft-id");
 		expect(raw).toContain(`In-Reply-To: <${suffix}@contact.test>`);
-		expect(raw).toContain(`References: <${suffix}@contact.test>`);
+		expect(raw).toContain(
+			`References: <root-${suffix}@contact.test> <${suffix}@contact.test>`,
+		);
 		expect(raw).toContain(`To: ${suffix}@contact.test`);
+		expect(
+			rootMessageIdFrom({
+				references:
+					raw
+						.split("\r\n")
+						.find((line) => line.startsWith("References: "))
+						?.slice("References: ".length) ?? null,
+				inReplyTo: null,
+				messageId: null,
+			}),
+		).toBe(`root-${suffix}@contact.test`);
 		expect(
 			(await db.followUp.findUniqueOrThrow({ where: { id: row.id } })).status,
 		).toBe("APPROVED");
@@ -218,6 +232,7 @@ describe("mailbox reply drafts", () => {
 			subject: "Re: café",
 			body: "Thanks — café",
 			replyTo: "<original@example.test>",
+			rootMessageId: "root@example.test",
 			messageId: "<draft@crm.local>",
 		};
 		const raw = Buffer.from(gmailReplyRaw(input), "base64url").toString();

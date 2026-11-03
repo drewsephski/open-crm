@@ -69,6 +69,7 @@ export const followUpRowOutput = z.object({
 		})
 		.nullable(),
 	draftError: z.string().nullable(),
+	mailboxDraftLocked: z.boolean(),
 	approvedAt: z.string().nullable(),
 	approvedBy: z.string().nullable(),
 	sentAt: z.string().nullable(),

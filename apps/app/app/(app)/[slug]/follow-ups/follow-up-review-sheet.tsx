@@ -98,7 +98,8 @@ function Review({
 	const name = personName(row.contact);
 	const to = row.contact.email ?? "";
 	const editable = EDITABLE.has(row.status);
-	const draftEditable = editable && row.status !== "APPROVED";
+	const draftEditable =
+		editable && row.status !== "APPROVED" && !row.mailboxDraftLocked;
 	const ready = subject.trim() !== "" && body.trim() !== "" && to !== "";
 	const status = FOLLOW_UP_STATUS[row.status];
 	const where = mailbox ? MAILBOX_LABEL[mailbox] : "your email app";
@@ -317,6 +318,12 @@ function Review({
 							}
 							onChange={(event) => setBody(event.target.value)}
 						/>
+						{row.mailboxDraftLocked ? (
+							<FieldDescription>
+								A mailbox draft is saved or pending. Edit the message in your
+								mailbox.
+							</FieldDescription>
+						) : null}
 						{row.draft?.note ? (
 							<FieldDescription>
 								{row.draft.byAgent ? "From the agent: " : ""}

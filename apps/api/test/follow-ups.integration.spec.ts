@@ -255,6 +255,43 @@ describe("FollowUpsService", () => {
 		expect(stored.activeKey).not.toBeNull();
 	});
 
+	it("keeps mailbox draft text immutable after snoozing and renewed approval", async () => {
+		const row = await followUp("mailbox-locked");
+		const draft = {
+			id: row.id,
+			subject: "Re: Quote",
+			body: "The approved message.",
+		};
+		await followUps.approve(draft, userId);
+		await db.followUp.update({
+			where: { id: row.id },
+			data: {
+				mailboxDraftAttemptedAt: new Date(),
+				mailboxDraftId: "saved-provider-draft",
+				mailboxDraftUserId: userId,
+				mailboxDraftProvider: "gmail",
+			},
+		});
+		await followUps.snooze(row.id, 3);
+		await expect(
+			followUps.saveDraft({ ...draft, body: "Changed text." }, userId),
+		).rejects.toThrow("mailbox draft");
+		await expect(
+			followUps.approve({ ...draft, body: "Changed text." }, userId),
+		).rejects.toThrow("Keep the approved text");
+		await expect(followUps.approve(draft, "another-user")).rejects.toThrow(
+			"Keep the approved text",
+		);
+		expect((await followUps.approve(draft, userId)).status).toBe(
+			FollowUpStatus.APPROVED,
+		);
+		const stored = await db.followUp.findUniqueOrThrow({
+			where: { id: row.id },
+		});
+		expect(stored.draftBody).toBe(draft.body);
+		expect(stored.mailboxDraftId).toBe("saved-provider-draft");
+	});
+
 	it("marks sent and frees the person for future follow-ups", async () => {
 		const row = await followUp("sent");
 		const sent = await followUps.markSent(row.id, userId);

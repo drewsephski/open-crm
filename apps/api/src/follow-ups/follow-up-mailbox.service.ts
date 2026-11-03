@@ -28,17 +28,29 @@ export function gmailReplyRaw(input: {
 	subject: string;
 	body: string;
 	replyTo: string;
+	rootMessageId: string;
 	messageId: string;
 }) {
 	for (const value of [
 		input.to,
 		input.subject,
 		input.replyTo,
+		input.rootMessageId,
 		input.messageId,
 	]) {
 		if (/[\r\n]/.test(value))
 			throw new ConflictException("Email headers contain a line break.");
 	}
+	const messageId = (value: string) => {
+		const normalized = value.replace(/^</, "").replace(/>$/, "");
+		if (!normalized || /[\s<>]/.test(normalized))
+			throw new ConflictException("Email message IDs are invalid.");
+		return `<${normalized}>`;
+	};
+	const parent = messageId(input.replyTo);
+	const references = [
+		...new Set([messageId(input.rootMessageId), parent]),
+	].join(" ");
 	const subject = `=?UTF-8?B?${Buffer.from(input.subject).toString("base64")}?=`;
 	const body =
 		Buffer.from(input.body)
@@ -49,9 +61,9 @@ export function gmailReplyRaw(input: {
 		[
 			`To: ${input.to}`,
 			`Subject: ${subject}`,
-			`Message-ID: ${input.messageId}`,
-			`In-Reply-To: ${input.replyTo}`,
-			`References: ${input.replyTo}`,
+			`Message-ID: ${messageId(input.messageId)}`,
+			`In-Reply-To: ${parent}`,
+			`References: ${references}`,
 			"MIME-Version: 1.0",
 			'Content-Type: text/plain; charset="UTF-8"',
 			"Content-Transfer-Encoding: base64",
@@ -137,6 +149,7 @@ export class FollowUpMailboxService {
 						"This follow-up has no synced email thread. Use the new email action.",
 					);
 				const message = await tx.emailMessage.findFirst({
+					include: { thread: { select: { rootMessageId: true } } },
 					where: {
 						threadId: signal.threadId,
 						syncedByUserId: userId,
@@ -237,6 +250,7 @@ export class FollowUpMailboxService {
 						subject: row.draftSubject,
 						body: row.draftBody,
 						replyTo: message.rfcMessageId,
+						rootMessageId: message.thread.rootMessageId,
 						messageId: `<follow-up-${row.id}@crm.local>`,
 					});
 					const draft = gmailDraft.parse(
