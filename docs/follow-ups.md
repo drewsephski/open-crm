@@ -68,6 +68,10 @@ OPEN → DRAFTING → READY → APPROVED → SENT → REPLIED
   A mailbox draft request blocks human edits and agent redrafts.
   Gmail sync excludes unsent drafts from conversation history and send confirmation.
 - Repeated opens reuse the saved mailbox draft.
+  A concurrent open during creation reports that the draft request is pending.
+  The atomic claim commits before provider calls. No transaction holds a connection during provider calls.
+  A changed status or recipient stops the draft from opening.
+  The draft reference remains for audit. Review or delete the unsent draft in the mailbox.
   An uncertain provider request blocks automatic retries.
   The administrator checks the mailbox Drafts folder before clearing `mailboxDraftAttemptedAt` in Prisma Studio.
   Keep the marker after a draft exists. Save the provider draft link instead of creating another draft.

@@ -113,13 +113,7 @@ function Review({
 
 	const approve = useMutation(
 		trpc.followUps.approve.mutationOptions({
-			onSuccess: () =>
-				settled(
-					mailbox
-						? `Approved. Send it from ${where}; the CRM confirms it once your mailbox syncs.`
-						: "Approved. Send it, then mark it as sent.",
-					false,
-				),
+			onSuccess: () => cache.followUps(),
 			onError: failed,
 		}),
 	);
@@ -132,9 +126,12 @@ function Review({
 		try {
 			if (needsApproval)
 				await approve.mutateAsync({ id: row.id, subject, body });
-			const url = threaded
-				? (await openMailboxDraft.mutateAsync({ id: row.id })).url
-				: composeUrl(mailbox, to, subject, body);
+			const draft = threaded
+				? await openMailboxDraft.mutateAsync({ id: row.id })
+				: null;
+			const url = draft?.url ?? composeUrl(mailbox, to, subject, body);
+			const destination = draft ? MAILBOX_LABEL[draft.provider] : where;
+			toast.success(`Approved. Send it from ${destination}.`);
 			if (popup) popup.location.href = url;
 			else toast.error("Allow popups, then open the approved email again.");
 		} catch {
@@ -279,7 +276,9 @@ function Review({
 						<AlertTitle>Approved and waiting to go out</AlertTitle>
 						<AlertDescription>
 							{mailbox
-								? `Send it from ${where}. The CRM marks it sent when your mailbox shows it, and counts the reply when one arrives.`
+								? openMailboxDraft.data
+									? `Send it from ${MAILBOX_LABEL[openMailboxDraft.data.provider]}. The CRM confirms the send through mailbox sync.`
+									: "Send it from the mailbox that contains your draft. The CRM confirms the send through mailbox sync."
 								: "No mailbox is connected, so the CRM cannot see the send. Mark it as sent once it has gone."}
 						</AlertDescription>
 					</Alert>

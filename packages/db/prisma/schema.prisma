@@ -1790,6 +1790,7 @@ model FollowUp {
   mailboxDraftId String?
   mailboxDraftUserId String?
   mailboxDraftProvider String?
+  mailboxDraftRecipient String?
 
   approvedById String?
   approvedBy   User?     @relation("FollowUpApprover", fields: [approvedById], references: [id], onDelete: SetNull)

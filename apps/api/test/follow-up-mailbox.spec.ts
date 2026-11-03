@@ -190,15 +190,22 @@ describe("mailbox reply drafts", () => {
 			),
 		);
 		restores.push(() => fetcher.mockRestore());
-		const results = await Promise.all([
+		const results = await Promise.allSettled([
 			service.openDraft(row.id, userId),
 			service.openDraft(row.id, userId),
 		]);
 		expect(writes).toBe(1);
-		expect(results.map((result) => new URL(result.url).hash).sort()).toEqual([
-			"#drafts?compose=draft-message",
+		expect(
+			results.filter((result) => result.status === "fulfilled"),
+		).toHaveLength(1);
+		expect(
+			results.filter((result) => result.status === "rejected"),
+		).toHaveLength(1);
+		const reopened = await service.openDraft(row.id, userId);
+		expect(reopened.provider).toBe("gmail");
+		expect(new URL(reopened.url).hash).toBe(
 			"#drafts?compose=edited-draft-message",
-		]);
+		);
 		expect(
 			(await db.followUp.findUniqueOrThrow({ where: { id: row.id } }))
 				.mailboxDraftId,
@@ -357,6 +364,94 @@ describe("mailbox reply drafts", () => {
 		expect(fetcher).toHaveBeenCalledTimes(2);
 	});
 
+	it("rejects a recipient change before claiming a draft", async () => {
+		grant();
+		const row = await followUp();
+		const fetcher = spyOn(globalThis, "fetch").mockImplementation(
+			Object.assign(
+				async () => {
+					await db.contact.update({
+						where: { id: contactId },
+						data: { email: `${suffix}@changed.test` },
+					});
+					return Response.json({ threadId: "provider-thread" });
+				},
+				{ preconnect: fetch.preconnect },
+			),
+		);
+		restores.push(() => fetcher.mockRestore());
+		try {
+			await expect(service.openDraft(row.id, userId)).rejects.toThrow(
+				"Refresh the queue",
+			);
+			expect(fetcher).toHaveBeenCalledTimes(1);
+			expect(
+				(await db.followUp.findUniqueOrThrow({ where: { id: row.id } }))
+					.mailboxDraftAttemptedAt,
+			).toBeNull();
+		} finally {
+			await db.contact.update({
+				where: { id: contactId },
+				data: { email: `${suffix}@contact.test` },
+			});
+		}
+	});
+
+	it("refuses a saved draft after the contact email changes", async () => {
+		grant();
+		const row = await followUp();
+		await db.followUp.update({
+			where: { id: row.id },
+			data: {
+				mailboxDraftId: "saved-draft",
+				mailboxDraftProvider: "gmail",
+				mailboxDraftUserId: userId,
+				mailboxDraftRecipient: `${suffix}@old.test`,
+				mailboxDraftAttemptedAt: new Date(),
+			},
+		});
+		const fetcher = spyOn(globalThis, "fetch");
+		restores.push(() => fetcher.mockRestore());
+		await expect(service.openDraft(row.id, userId)).rejects.toThrow(
+			"existing draft recipient",
+		);
+		expect(fetcher).not.toHaveBeenCalled();
+	});
+
+	it("keeps the provider result for audit and refuses opening after a concurrent send", async () => {
+		grant();
+		const row = await followUp();
+		const fetcher = spyOn(globalThis, "fetch").mockImplementation(
+			Object.assign(
+				async (input: Parameters<typeof fetch>[0]) => {
+					if (String(input).endsWith("?format=metadata"))
+						return Response.json({ threadId: "provider-thread" });
+					await db.followUp.update({
+						where: { id: row.id },
+						data: { status: "SENT", sentAt: new Date() },
+					});
+					return Response.json({
+						id: "late-draft",
+						message: { id: "late-message" },
+					});
+				},
+				{ preconnect: fetch.preconnect },
+			),
+		);
+		restores.push(() => fetcher.mockRestore());
+		await expect(service.openDraft(row.id, userId)).rejects.toThrow(
+			"unsent draft remains",
+		);
+		const kept = await db.followUp.findUniqueOrThrow({ where: { id: row.id } });
+		expect(kept.status).toBe("SENT");
+		expect(kept.mailboxDraftId).toBe("late-draft");
+		expect(kept.mailboxDraftRecipient).toBe(`${suffix}@contact.test`);
+		await expect(service.openDraft(row.id, userId)).rejects.toThrow(
+			"Approve this follow-up",
+		);
+		expect(fetcher).toHaveBeenCalledTimes(2);
+	});
+
 	it("creates and fills an Outlook reply draft without sending it", async () => {
 		grant([OUTLOOK_DRAFT_SCOPE]);
 		const row = await followUp();
@@ -424,6 +519,20 @@ describe("mailbox reply drafts", () => {
 		expect(raw).toContain(
 			`Subject: =?UTF-8?B?${Buffer.from(input.subject).toString("base64")}?=`,
 		);
+		const longSubject = `Re: ${"café 🧑🏽‍💻 ".repeat(15)}`;
+		const encoded = Buffer.from(
+			gmailReplyRaw({ ...input, subject: longSubject }),
+			"base64url",
+		).toString();
+		const words = [...encoded.matchAll(/=\?UTF-8\?B\?([^?]+)\?=/g)];
+		expect(words.length).toBeGreaterThan(1);
+		for (const word of words) expect(word[0].length).toBeLessThanOrEqual(75);
+		expect(
+			words
+				.map((word) => Buffer.from(word[1] ?? "", "base64").toString())
+				.join(""),
+		).toBe(longSubject);
+
 		expect(() =>
 			gmailReplyRaw({
 				...input,
