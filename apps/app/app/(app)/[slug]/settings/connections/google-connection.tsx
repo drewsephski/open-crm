@@ -130,12 +130,12 @@ const CONNECT_ERRORS = new Map([
 	],
 ]);
 
-function ConnectGoogle({
+function GoogleConnectButton({
 	slug,
-	connectError,
+	label = "Connect",
 }: {
 	slug: string;
-	connectError?: string;
+	label?: string;
 }) {
 	const [pending, setPending] = useState(false);
 
@@ -160,6 +160,45 @@ function ConnectGoogle({
 	}
 
 	return (
+		<Button
+			size="sm"
+			disabled={pending}
+			onClick={() => {
+				handleConnect().catch(() => fail());
+			}}
+			type="button"
+		>
+			{pending ? (
+				<Spinner data-icon="inline-start" />
+			) : (
+				<GoogleLogo data-icon="inline-start" className="size-4" />
+			)}
+			{label}
+		</Button>
+	);
+}
+
+function GoogleConnectError({ error }: { error: string }) {
+	return (
+		<Alert variant="destructive">
+			<Icon icon={Warning} />
+			<AlertTitle>Google did not finish connecting</AlertTitle>
+			<AlertDescription>
+				{CONNECT_ERRORS.get(error) ??
+					"Google returned an error before the connection was made. Try again."}
+			</AlertDescription>
+		</Alert>
+	);
+}
+
+function ConnectGoogle({
+	slug,
+	connectError,
+}: {
+	slug: string;
+	connectError?: string;
+}) {
+	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>
@@ -174,34 +213,13 @@ function ConnectGoogle({
 				</CardDescription>
 
 				<CardAction>
-					<Button
-						size="sm"
-						disabled={pending}
-						onClick={() => {
-							handleConnect().catch(() => fail());
-						}}
-						type="button"
-					>
-						{pending ? (
-							<Spinner data-icon="inline-start" />
-						) : (
-							<GoogleLogo data-icon="inline-start" className="size-4" />
-						)}
-						Connect
-					</Button>
+					<GoogleConnectButton slug={slug} />
 				</CardAction>
 			</CardHeader>
 
 			{connectError ? (
 				<CardContent>
-					<Alert variant="destructive">
-						<Icon icon={Warning} />
-						<AlertTitle>Google did not finish connecting</AlertTitle>
-						<AlertDescription>
-							{CONNECT_ERRORS.get(connectError) ??
-								"Google returned an error before the connection was made. Try again."}
-						</AlertDescription>
-					</Alert>
+					<GoogleConnectError error={connectError} />
 				</CardContent>
 			) : null}
 		</Card>
@@ -275,7 +293,7 @@ export function GoogleConnection({
 
 	if (!status.data) return null;
 
-	const { sources, hasRefreshToken, configured, linked, required } =
+	const { sources, hasRefreshToken, configured, linked, required, canDraft } =
 		status.data;
 
 	if (!configured) return <GoogleUnavailable />;
@@ -311,18 +329,24 @@ export function GoogleConnection({
 				</CardDescription>
 
 				<CardAction>
-					<Button
-						variant="contrast"
-						size="sm"
-						disabled={syncNow.isPending}
-						onClick={() => syncNow.mutate()}
-					>
-						{syncNow.isPending ? "Checking…" : "Check now"}
-					</Button>
+					<div className="flex items-center gap-2">
+						{!canDraft ? (
+							<GoogleConnectButton slug={slug} label="Enable drafts" />
+						) : null}
+						<Button
+							variant="contrast"
+							size="sm"
+							disabled={syncNow.isPending}
+							onClick={() => syncNow.mutate()}
+						>
+							{syncNow.isPending ? "Checking…" : "Check now"}
+						</Button>
+					</div>
 				</CardAction>
 			</CardHeader>
 
 			<CardContent>
+				{connectError ? <GoogleConnectError error={connectError} /> : null}
 				{!hasRefreshToken ? (
 					<Alert variant="destructive" attention={insistence}>
 						<Icon icon={Warning} />
