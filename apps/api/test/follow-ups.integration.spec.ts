@@ -229,6 +229,37 @@ describe("ImportsService", () => {
 			}),
 		).toBe(0);
 	});
+
+	it("emits deal.closed once for an imported closed deal", async () => {
+		const input = {
+			rows: [
+				{
+					email: `closed@${DOMAIN}`,
+					companyName: "Closed Studio",
+					website: DOMAIN,
+					dealName: "Completed project",
+					dealStage: "Closed won",
+				},
+			],
+			firstRow: 2,
+			research: false,
+		};
+		expect((await imports.contacts(input, userId)).dealsCreated).toBe(1);
+		expect((await imports.contacts(input, userId)).dealsCreated).toBe(0);
+		const deal = await db.deal.findFirstOrThrow({
+			where: { name: "Completed project", ownerId: userId },
+		});
+		expect(deal.stage).toBe(DealStage.CLOSED_WON);
+		expect(deal.closedAt).not.toBeNull();
+		const events = await db.agentTask.findMany({
+			where: { kind: "agent-event", dealId: deal.id },
+			select: { reason: true },
+		});
+		expect(events.map((event) => event.reason).sort()).toEqual([
+			"deal.closed",
+			"deal.created",
+		]);
+	});
 });
 
 describe("FollowUpsService", () => {
