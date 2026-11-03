@@ -7,7 +7,7 @@ let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">> | undefined;
 afterEach(() => fetchSpy?.mockRestore());
 
 describe("Anthropic model catalog", () => {
-	it("excludes other providers, batch models, and models without tools", async () => {
+	it("excludes other providers, routed variants, and models without tools", async () => {
 		const model = {
 			id: "anthropic/claude-haiku-5.5",
 			name: "Claude Haiku 5.5",
@@ -23,6 +23,7 @@ describe("Anthropic model catalog", () => {
 					model,
 					{ ...model, id: "openai/gpt-5.5", owned_by: "openai" },
 					{ ...model, id: "anthropic/claude-haiku-5.5-batch" },
+					{ ...model, id: "anthropic/claude-opus-5.5-fast" },
 					{ ...model, id: "anthropic/no-tools", tags: [] },
 				],
 			}),

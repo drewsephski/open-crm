@@ -18,13 +18,21 @@ export interface AgentModelSetting {
 	isDefault: boolean;
 }
 
+export function isAnthropicAgentModel(id: string): boolean {
+	return (
+		id.startsWith("anthropic/") &&
+		!id.endsWith("-batch") &&
+		!id.endsWith("-fast")
+	);
+}
+
 export async function readAgentModel(db: Db): Promise<AgentModelSetting> {
 	const row = await db.appSetting.findUnique({
 		where: { id: SETTINGS_ID },
 		select: { agentModelId: true, agentModelContextWindow: true },
 	});
 
-	if (!row?.agentModelId?.startsWith("anthropic/")) {
+	if (!row?.agentModelId || !isAnthropicAgentModel(row.agentModelId)) {
 		return { ...DEFAULT_AGENT_MODEL, isDefault: true };
 	}
 

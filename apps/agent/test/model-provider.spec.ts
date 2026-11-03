@@ -36,9 +36,13 @@ describe("direct Anthropic models", () => {
 		expect(selection.modelContextWindowTokens).toBe(200_000);
 	});
 
-	it("replaces a legacy provider selection with the complete default", () => {
+	it.each([
+		"zai/glm-5.2-fast",
+		"anthropic/claude-opus-5.5-fast",
+		"anthropic/claude-haiku-5.5-batch",
+	])("replaces unsupported selection %s with the complete default", (model) => {
 		const selection = directModel({
-			model: "zai/glm-5.2-fast",
+			model,
 			modelContextWindowTokens: 200_000,
 		});
 

@@ -1,6 +1,10 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { db } from "@crm/db";
-import { DEFAULT_AGENT_MODEL, readAgentModel } from "@crm/db/settings";
+import {
+	DEFAULT_AGENT_MODEL,
+	isAnthropicAgentModel,
+	readAgentModel,
+} from "@crm/db/settings";
 import type { LanguageModel } from "ai";
 import { type DynamicResolveContext, defineDynamic } from "eve";
 import { defineState } from "eve/context";
@@ -21,7 +25,7 @@ const sessionModel = defineState<ModelSelection | null>(
 );
 
 function anthropicSelection(selection: ModelSelection): ModelSelection {
-	return selection.model.startsWith("anthropic/")
+	return isAnthropicAgentModel(selection.model)
 		? selection
 		: {
 				model: DEFAULT_AGENT_MODEL.id,
