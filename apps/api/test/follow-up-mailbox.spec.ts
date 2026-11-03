@@ -297,6 +297,38 @@ describe("mailbox reply drafts", () => {
 		).toBe("101");
 	});
 
+	it("refuses an approval replaced during Gmail metadata lookup", async () => {
+		grant();
+		const row = await followUp();
+		const fetcher = spyOn(globalThis, "fetch").mockImplementation(
+			Object.assign(
+				async (input: Parameters<typeof fetch>[0]) => {
+					expect(String(input)).toEndWith("?format=metadata");
+					await db.followUp.update({
+						where: { id: row.id },
+						data: {
+							draftBody: "New approved text",
+							approvedAt: new Date((row.approvedAt?.getTime() ?? 0) + 1),
+						},
+					});
+					return Response.json({ threadId: "provider-thread" });
+				},
+				{ preconnect: fetch.preconnect },
+			),
+		);
+		restores.push(() => fetcher.mockRestore());
+		await expect(service.openDraft(row.id, userId)).rejects.toThrow(
+			"Refresh the queue",
+		);
+		expect(fetcher).toHaveBeenCalledTimes(1);
+		const stored = await db.followUp.findUniqueOrThrow({
+			where: { id: row.id },
+		});
+		expect(stored.mailboxDraftAttemptedAt).toBeNull();
+		expect(stored.mailboxDraftId).toBeNull();
+		expect(stored.draftBody).toBe("New approved text");
+	});
+
 	it("keeps approval and exposes provider failures", async () => {
 		grant();
 		const row = await followUp();
