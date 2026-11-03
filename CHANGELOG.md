@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.17.0](https://github.com/drewsephski/open-crm/compare/v1.16.0...v1.17.0) (2026-11-03)
+
+
+### Features
+
+* add sales follow-ups with direct Anthropic drafting ([3028c73](https://github.com/drewsephski/open-crm/commit/3028c73d79b029171f619e5af5704d0f80836cff))
+* add sales follow-ups with direct Anthropic drafting ([25be092](https://github.com/drewsephski/open-crm/commit/25be092dffe450a3c3f715205b4d09a1394d1007))
+
+
+### Fixes
+
+* complete pilot credentials and threaded follow-up drafts ([#3](https://github.com/drewsephski/open-crm/issues/3)) ([e2b062d](https://github.com/drewsephski/open-crm/commit/e2b062d9848758292da7010a8393ba47d33e4ee6))
+* reject unsupported Anthropic model variants ([11521f2](https://github.com/drewsephski/open-crm/commit/11521f28b1c4744359ce9166cbcccf7923e0803c))
+
 ## [1.16.0](https://github.com/trycompai/crm/compare/v1.15.3...v1.16.0) (2026-10-22)
 
 
