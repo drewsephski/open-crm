@@ -139,6 +139,11 @@ describe("mailbox reply drafts", () => {
 					init?: Parameters<typeof fetch>[1],
 				) => {
 					const url = String(input);
+					if (url.endsWith("/drafts/draft-id?format=metadata"))
+						return Response.json({
+							id: "draft-id",
+							message: { id: "edited-draft-message" },
+						});
 					if (url.endsWith("?format=metadata"))
 						return Response.json({ threadId: "provider-thread" });
 					expect(url).toBe(
@@ -163,7 +168,14 @@ describe("mailbox reply drafts", () => {
 			service.openDraft(row.id, userId),
 		]);
 		expect(writes).toBe(1);
-		expect(results[0]).toEqual(results[1]);
+		expect(results.map((result) => new URL(result.url).hash).sort()).toEqual([
+			"#drafts?compose=draft-message",
+			"#drafts?compose=edited-draft-message",
+		]);
+		expect(
+			(await db.followUp.findUniqueOrThrow({ where: { id: row.id } }))
+				.mailboxDraftId,
+		).toBe("draft-id");
 		expect(raw).toContain(`In-Reply-To: <${suffix}@contact.test>`);
 		expect(raw).toContain(`References: <${suffix}@contact.test>`);
 		expect(raw).toContain(`To: ${suffix}@contact.test`);

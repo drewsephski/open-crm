@@ -96,6 +96,28 @@ export class FollowUpMailboxService {
 					select: { email: true },
 				});
 				if (row.mailboxDraftId && row.mailboxDraftUserId === userId) {
+					if (row.mailboxDraftProvider === "gmail") {
+						const token = await this.tokens.accessTokenFor(userId, "gmail");
+						if (token.outcome !== "ok")
+							throw new ConflictException(token.reason);
+						const response = await fetch(
+							`https://gmail.googleapis.com/gmail/v1/users/me/drafts/${encodeURIComponent(row.mailboxDraftId)}?format=metadata`,
+							{
+								headers: { authorization: `Bearer ${token.accessToken}` },
+								signal: AbortSignal.timeout(
+									FOLLOW_UP_API.email.requestTimeoutMs,
+								),
+							},
+						);
+						if (!response.ok)
+							throw new BadGatewayException(
+								"The saved mailbox draft is unavailable. Check Gmail Drafts before creating another email.",
+							);
+						const draft = gmailDraft.parse(await response.json());
+						return {
+							url: this.draftUrl("gmail", draft.message.id, user.email),
+						};
+					}
 					return {
 						url: this.draftUrl(
 							row.mailboxDraftProvider,
@@ -224,8 +246,8 @@ export class FollowUpMailboxService {
 							})
 						).json(),
 					);
-					draftId = draft.message.id;
-					url = this.draftUrl(source, draftId, user.email);
+					draftId = draft.id;
+					url = this.draftUrl(source, draft.message.id, user.email);
 				} else {
 					const base = "https://graph.microsoft.com/v1.0/me/messages";
 					const draft = outlookDraft.parse(
