@@ -7,7 +7,7 @@ import {
 	it,
 	spyOn,
 } from "bun:test";
-import { GMAIL_DRAFT_SCOPE } from "@crm/auth/scopes";
+import { GMAIL_DRAFT_SCOPE, OUTLOOK_DRAFT_SCOPE } from "@crm/auth/scopes";
 import { db } from "@crm/db";
 import {
 	FollowUpMailboxService,
@@ -95,9 +95,9 @@ async function followUp(approved = true) {
 	});
 }
 
-function grant() {
+function grant(grantedScopes: string[] = [GMAIL_DRAFT_SCOPE]) {
 	const scopes = spyOn(tokens, "grantedScopes").mockResolvedValue(
-		new Set([GMAIL_DRAFT_SCOPE]),
+		new Set(grantedScopes),
 	);
 	const token = spyOn(tokens, "accessTokenFor").mockResolvedValue({
 		outcome: "ok",
@@ -224,6 +224,60 @@ describe("mailbox reply drafts", () => {
 			"previous mailbox draft request",
 		);
 		expect(fetcher).toHaveBeenCalledTimes(2);
+	});
+
+	it("creates and fills an Outlook reply draft without sending it", async () => {
+		grant([OUTLOOK_DRAFT_SCOPE]);
+		const row = await followUp();
+		await db.emailMessage.updateMany({
+			where: { threadId },
+			data: { gmailMessageId: null, outlookMessageId: "outlook-original" },
+		});
+		const calls: string[] = [];
+		const fetcher = spyOn(globalThis, "fetch").mockImplementation(
+			Object.assign(
+				async (
+					input: Parameters<typeof fetch>[0],
+					init?: Parameters<typeof fetch>[1],
+				) => {
+					const url = String(input);
+					calls.push(`${init?.method} ${url}`);
+					if (url.endsWith("/createReply"))
+						return Response.json({
+							id: "outlook-draft",
+							webLink:
+								"https://outlook.office.com/mail/deeplink/read/outlook-draft",
+						});
+					expect(init?.method).toBe("PATCH");
+					expect(JSON.parse(String(init?.body))).toEqual({
+						subject: row.draftSubject,
+						body: { contentType: "Text", content: row.draftBody },
+						toRecipients: [
+							{ emailAddress: { address: `${suffix}@contact.test` } },
+						],
+					});
+					return new Response(null, { status: 204 });
+				},
+				{ preconnect: fetch.preconnect },
+			),
+		);
+		restores.push(() => fetcher.mockRestore());
+		try {
+			const first = await service.openDraft(row.id, userId);
+			expect(await service.openDraft(row.id, userId)).toEqual(first);
+			expect(calls).toEqual([
+				"POST https://graph.microsoft.com/v1.0/me/messages/outlook-original/createReply",
+				"PATCH https://graph.microsoft.com/v1.0/me/messages/outlook-draft",
+			]);
+			expect(
+				(await db.followUp.findUniqueOrThrow({ where: { id: row.id } })).status,
+			).toBe("APPROVED");
+		} finally {
+			await db.emailMessage.updateMany({
+				where: { threadId },
+				data: { gmailMessageId: "original-message", outlookMessageId: null },
+			});
+		}
 	});
 
 	it("encodes Unicode and rejects injected headers", () => {
