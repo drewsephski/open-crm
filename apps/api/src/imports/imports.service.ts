@@ -1,5 +1,4 @@
 import {
-	type Db,
 	type DealStage,
 	EnrichmentStatus,
 	Prisma,
@@ -12,7 +11,6 @@ import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { domainFromEmail, normalizeDomain } from "../companies/domain";
 import { blankToNull, normalizeEmail } from "../crm/values";
 import { ConversionService } from "../currency/conversion.service";
-import { InjectDatabase } from "../database/database.constants";
 import { IMPORTS } from "./imports.config";
 import type { ImportInput, ImportOutput, ImportRow } from "./imports.contracts";
 
@@ -94,7 +92,6 @@ export class ImportsService {
 	private readonly logger = new Logger(ImportsService.name);
 
 	constructor(
-		@InjectDatabase() private readonly db: Db,
 		private readonly conversion: ConversionService,
 		private readonly agent: AgentTriggerService,
 	) {}
@@ -198,7 +195,7 @@ export class ImportsService {
 		const wantsDeal = Boolean(row.dealName?.trim() || stage || amount);
 		const enrichmentStatus = EnrichmentStatus.SKIPPED;
 
-		return this.db.$transaction(async (tx) => {
+		return this.agent.withCrmEvents(async (tx, emit) => {
 			const result: RowResult = {
 				contactCreated: false,
 				contactUpdated: false,
@@ -243,6 +240,12 @@ export class ImportsService {
 					});
 					companyId = created.id;
 					result.companyCreated = created.id;
+					await emit({
+						type: "company.created",
+						record: { kind: "company", id: created.id },
+						occurredAt: now,
+						data: { name: companyName, domain, source: RecordSource.IMPORT },
+					});
 				}
 			}
 
@@ -293,6 +296,12 @@ export class ImportsService {
 				});
 				contactId = created.id;
 				result.contactCreated = true;
+				await emit({
+					type: "contact.created",
+					record: { kind: "contact", id: created.id },
+					occurredAt: now,
+					data: { ...name, email, companyId, source: RecordSource.IMPORT },
+				});
 			}
 			result.contactId = contactId;
 
@@ -331,6 +340,20 @@ export class ImportsService {
 					});
 					dealId = deal.id;
 					result.dealCreated = true;
+					await emit({
+						type: "deal.created",
+						record: { kind: "deal", id: deal.id },
+						occurredAt: now,
+						data: { companyId, stage: dealStage },
+					});
+					if (isClosedStage(dealStage)) {
+						await emit({
+							type: "deal.closed",
+							record: { kind: "deal", id: deal.id },
+							occurredAt: now,
+							data: { companyId, from: null, to: dealStage },
+						});
+					}
 				}
 
 				await tx.dealContact.upsert({

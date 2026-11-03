@@ -29,6 +29,7 @@ export const microsoftConnectionStatusOutput = z.object({
 	linked: z.boolean(),
 	required: z.boolean(),
 	hasRefreshToken: z.boolean(),
+	canDraft: z.boolean(),
 	sources: z.array(microsoftSourceStatusOutput),
 });
 

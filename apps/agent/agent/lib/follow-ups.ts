@@ -622,6 +622,7 @@ async function queueDrafts(sweep: FollowUpSweep, now: Date): Promise<void> {
 			status: FollowUpStatus.OPEN,
 			draftTaskId: null,
 			draftedAt: null,
+			mailboxDraftAttemptedAt: null,
 			priority: { gte: FOLLOW_UPS.draft.autoMinPriority },
 		},
 		orderBy: [{ priority: "desc" }, { quietSince: "asc" }],
@@ -674,7 +675,12 @@ export async function queueDraft(
 			});
 
 			const { count } = await tx.followUp.updateMany({
-				where: { id: row.id, status: FollowUpStatus.OPEN, draftTaskId: null },
+				where: {
+					id: row.id,
+					status: FollowUpStatus.OPEN,
+					draftTaskId: null,
+					mailboxDraftAttemptedAt: null,
+				},
 				data: {
 					status: FollowUpStatus.DRAFTING,
 					draftTaskId: task.id,
@@ -700,6 +706,7 @@ export async function saveFollowUpDraft(
 		where: {
 			id: followUpId,
 			status: { in: [FollowUpStatus.OPEN, FollowUpStatus.DRAFTING] },
+			mailboxDraftAttemptedAt: null,
 		},
 		data: {
 			draftSubject: draft.subject,

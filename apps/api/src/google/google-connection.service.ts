@@ -1,5 +1,9 @@
 import { isGoogleConfigured } from "@crm/auth/env";
-import { GOOGLE_PROVIDER_ID, signsInWithGoogle } from "@crm/auth/scopes";
+import {
+	GMAIL_DRAFT_SCOPE,
+	GOOGLE_PROVIDER_ID,
+	signsInWithGoogle,
+} from "@crm/auth/scopes";
 import type { Db, Prisma } from "@crm/db";
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { normalizeDomain } from "../companies/domain";
@@ -68,6 +72,7 @@ export class GoogleConnectionService {
 				sources.some((source) => source.connected),
 			required: signsInWithGoogle(accounts),
 			hasRefreshToken,
+			canDraft: granted.has(GMAIL_DRAFT_SCOPE),
 			sources,
 		};
 	}

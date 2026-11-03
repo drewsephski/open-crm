@@ -69,6 +69,7 @@ export const followUpRowOutput = z.object({
 		})
 		.nullable(),
 	draftError: z.string().nullable(),
+	mailboxDraftLocked: z.boolean(),
 	approvedAt: z.string().nullable(),
 	approvedBy: z.string().nullable(),
 	sentAt: z.string().nullable(),
@@ -132,3 +133,8 @@ export const followUpMutationOutput = z.object({
 });
 
 export const followUpScanOutput = z.object({ requested: z.literal(true) });
+
+export const followUpMailboxDraftOutput = z.object({
+	url: z.string().url(),
+	provider: z.enum(["gmail", "outlook"]),
+});

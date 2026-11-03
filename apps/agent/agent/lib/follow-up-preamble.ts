@@ -1,5 +1,8 @@
 import { db, type FollowUpKind } from "@crm/db";
-import { parseFollowUpSignal } from "@crm/validation/follow-up";
+import {
+	followUpReplySubject,
+	parseFollowUpSignal,
+} from "@crm/validation/follow-up";
 
 const WHY = {
 	UNANSWERED:
@@ -104,7 +107,9 @@ export async function followUpPreamble(followUpId: string): Promise<{
 		"- No pressure tactics, no false urgency, no flattery, no “just circling back”, no “hope this finds you well”.",
 		"- Never commit to a price, discount, deadline or deliverable that is not already in the thread.",
 		"- If the history shows they asked us to stop, or that this follow-up would be inappropriate, still call the tool, but say so plainly in `note` and write the gentlest possible draft.",
-		"- The subject continues the existing thread when there is one: reuse its subject with `Re: ` in front.",
+		signal.threadSubject
+			? `- Use this reply subject exactly: ${JSON.stringify(followUpReplySubject(signal.threadSubject))}.`
+			: "- Write a subject that describes this first email.",
 	];
 
 	return {

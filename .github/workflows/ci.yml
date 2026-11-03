@@ -1,14 +1,15 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
-    branches: [main, release]
+    branches: ["**"]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

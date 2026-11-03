@@ -6,7 +6,38 @@ export {
 	setPrismaLogSink,
 } from "./client";
 export { Prisma, PrismaClient } from "./generated/prisma/client";
-export * from "./generated/prisma/enums";
+export {
+	ActivityType,
+	AgentActionStatus,
+	AgentBuilderArtifactStatus,
+	AgentConversationCommandType,
+	AgentConversationKind,
+	AgentConversationPermissionMode,
+	AgentConversationShareScope,
+	AgentConversationSubmissionStatus,
+	AgentDefinitionStatus,
+	AgentResponseRating,
+	AgentRunStatus,
+	AgentTriggerType,
+	AgentVersionStatus,
+	DealStage,
+	DomainScope,
+	EmailDirection,
+	EnrichmentStatus,
+	FactBand,
+	FactStatus,
+	FieldEntity,
+	FieldType,
+	FollowUpDismissal,
+	FollowUpKind,
+	FollowUpStatus,
+	GoogleSyncStatus,
+	McpAccessMode,
+	McpConnectionStatus,
+	McpToolReviewState,
+	RateSource,
+	RecordSource,
+} from "./generated/prisma/enums";
 export type * from "./generated/prisma/models";
 export type {
 	ContactBriefSections,

@@ -72,7 +72,9 @@ async function ConnectionsSettingsPageContent({
 						name: "Google Workspace",
 						status: "Connected",
 						bringsIn: "Emails, meetings and the people on them",
-						sends: "Nothing yet",
+						sends: google.canDraft
+							? "Approved drafts; you send each message from your mailbox"
+							: "Reconnect Google to enable approved drafts",
 						href: `/${slug}/settings/connections/google`,
 						mark: <GoogleLogo className="size-5 shrink-0" />,
 					},
@@ -98,7 +100,9 @@ async function ConnectionsSettingsPageContent({
 						name: "Microsoft 365",
 						status: "Connected",
 						bringsIn: "Outlook email and the people on it",
-						sends: "Nothing yet",
+						sends: microsoft.canDraft
+							? "Approved drafts; you send each message from your mailbox"
+							: "Reconnect Microsoft to enable approved drafts",
 						href: `/${slug}/settings/connections/microsoft`,
 						mark: <MicrosoftLogo className="size-5 shrink-0" />,
 					},

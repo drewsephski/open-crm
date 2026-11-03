@@ -28,6 +28,7 @@ import {
 import { Spinner } from "@crm/ui/components/spinner";
 import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { Textarea } from "@crm/ui/components/textarea";
+import { followUpReplySubject } from "@crm/validation/follow-up";
 import { useMutation } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { toast } from "sonner";
@@ -91,13 +92,17 @@ function Review({
 
 	const [subject, setSubject] = useState(
 		row.draft?.subject ??
-			(row.signal.threadSubject ? `Re: ${row.signal.threadSubject}` : ""),
+			(row.signal.threadSubject
+				? followUpReplySubject(row.signal.threadSubject)
+				: ""),
 	);
 	const [body, setBody] = useState(row.draft?.body ?? "");
 
 	const name = personName(row.contact);
 	const to = row.contact.email ?? "";
 	const editable = EDITABLE.has(row.status);
+	const draftEditable =
+		editable && row.status !== "APPROVED" && !row.mailboxDraftLocked;
 	const ready = subject.trim() !== "" && body.trim() !== "" && to !== "";
 	const status = FOLLOW_UP_STATUS[row.status];
 	const where = mailbox ? MAILBOX_LABEL[mailbox] : "your email app";
@@ -111,16 +116,31 @@ function Review({
 
 	const approve = useMutation(
 		trpc.followUps.approve.mutationOptions({
-			onSuccess: () =>
-				settled(
-					mailbox
-						? `Approved. Send it from ${where}; the CRM confirms it once your mailbox syncs.`
-						: "Approved. Send it, then mark it as sent.",
-					false,
-				),
+			onSuccess: () => cache.followUps(),
 			onError: failed,
 		}),
 	);
+	const openMailboxDraft = useMutation(
+		trpc.followUps.openMailboxDraft.mutationOptions({ onError: failed }),
+	);
+	const openEmail = async (needsApproval: boolean, threaded: boolean) => {
+		const popup = window.open("", "_blank");
+		if (popup) popup.opener = null;
+		try {
+			if (needsApproval)
+				await approve.mutateAsync({ id: row.id, subject, body });
+			const draft = threaded
+				? await openMailboxDraft.mutateAsync({ id: row.id })
+				: null;
+			const url = draft?.url ?? composeUrl(mailbox, to, subject, body);
+			const destination = draft ? MAILBOX_LABEL[draft.provider] : where;
+			toast.success(`Approved. Send it from ${destination}.`);
+			if (popup) popup.location.href = url;
+			else toast.error("Allow popups, then open the approved email again.");
+		} catch {
+			popup?.close();
+		}
+	};
 	const save = useMutation(
 		trpc.followUps.saveDraft.mutationOptions({
 			onSuccess: () => settled("Draft saved.", false),
@@ -154,6 +174,7 @@ function Review({
 
 	const busy =
 		approve.isPending ||
+		openMailboxDraft.isPending ||
 		save.isPending ||
 		markSent.isPending ||
 		dismiss.isPending ||
@@ -258,7 +279,9 @@ function Review({
 						<AlertTitle>Approved and waiting to go out</AlertTitle>
 						<AlertDescription>
 							{mailbox
-								? `Send it from ${where}. The CRM marks it sent when your mailbox shows it, and counts the reply when one arrives.`
+								? openMailboxDraft.data
+									? `Send it from ${MAILBOX_LABEL[openMailboxDraft.data.provider]}. The CRM confirms the send through mailbox sync.`
+									: "Send it from the mailbox that contains your draft. The CRM confirms the send through mailbox sync."
 								: "No mailbox is connected, so the CRM cannot see the send. Mark it as sent once it has gone."}
 						</AlertDescription>
 					</Alert>
@@ -279,7 +302,7 @@ function Review({
 						<Input
 							id={subjectId}
 							value={subject}
-							disabled={!editable}
+							disabled={!draftEditable}
 							onChange={(event) => setSubject(event.target.value)}
 						/>
 					</Field>
@@ -289,7 +312,7 @@ function Review({
 							id={bodyId}
 							value={body}
 							rows={12}
-							disabled={!editable}
+							disabled={!draftEditable}
 							placeholder={
 								row.status === "DRAFTING"
 									? "The draft appears here when it is ready."
@@ -297,6 +320,12 @@ function Review({
 							}
 							onChange={(event) => setBody(event.target.value)}
 						/>
+						{row.mailboxDraftLocked ? (
+							<FieldDescription>
+								A mailbox draft is saved or pending. Edit the message in your
+								mailbox.
+							</FieldDescription>
+						) : null}
 						{row.draft?.note ? (
 							<FieldDescription>
 								{row.draft.byAgent ? "From the agent: " : ""}
@@ -317,7 +346,7 @@ function Review({
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="start">
 							<DropdownMenuItem
-								disabled={!ready}
+								disabled={!ready || !draftEditable}
 								onSelect={() => save.mutate({ id: row.id, subject, body })}
 							>
 								Save draft
@@ -327,6 +356,7 @@ function Review({
 							</DropdownMenuItem>
 							{row.status === "OPEN" || row.status === "READY" ? (
 								<DropdownMenuItem
+									disabled={row.mailboxDraftLocked}
 									onSelect={() => redraft.mutate({ id: row.id })}
 								>
 									{row.draft
@@ -362,41 +392,36 @@ function Review({
 						</DropdownMenuContent>
 					</DropdownMenu>
 
-					{row.status === "APPROVED" ? (
-						<div className="flex gap-2">
-							<Button asChild variant="outline">
-								<a
-									href={composeUrl(mailbox, to, subject, body)}
-									target="_blank"
-									rel="noreferrer"
-								>
-									Open in {where} again
-								</a>
+					<div className="flex flex-wrap gap-2">
+						{mailbox && row.signal.threadId ? (
+							<Button
+								disabled={busy || !ready}
+								onClick={() => void openEmail(row.status !== "APPROVED", true)}
+							>
+								{busy ? <Spinner data-icon="inline-start" /> : null}
+								{row.status === "APPROVED"
+									? "Open reply draft"
+									: "Approve and open reply draft"}
 							</Button>
+						) : null}
+						<Button
+							variant={mailbox && row.signal.threadId ? "outline" : "default"}
+							disabled={busy || !ready}
+							onClick={() => void openEmail(row.status !== "APPROVED", false)}
+						>
+							{row.status === "APPROVED"
+								? "Open new email"
+								: "Approve and open new email"}
+						</Button>
+						{row.status === "APPROVED" ? (
 							<Button
 								disabled={busy}
 								onClick={() => markSent.mutate({ id: row.id })}
 							>
 								Mark as sent
 							</Button>
-						</div>
-					) : ready && !busy ? (
-						<Button asChild>
-							<a
-								href={composeUrl(mailbox, to, subject, body)}
-								target="_blank"
-								rel="noreferrer"
-								onClick={() => approve.mutate({ id: row.id, subject, body })}
-							>
-								Approve and open in {where}
-							</a>
-						</Button>
-					) : (
-						<Button disabled>
-							{busy ? <Spinner data-icon="inline-start" /> : null}
-							Approve and open in {where}
-						</Button>
-					)}
+						) : null}
+					</div>
 				</SheetFooter>
 			) : null}
 		</>

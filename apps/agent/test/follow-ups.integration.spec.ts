@@ -17,7 +17,11 @@ import {
 } from "@crm/db";
 import { brief, taskAuth } from "../agent/lib/dispatch";
 import { followUpPreamble } from "../agent/lib/follow-up-preamble";
-import { saveFollowUpDraft, scanFollowUps } from "../agent/lib/follow-ups";
+import {
+	queueDraft,
+	saveFollowUpDraft,
+	scanFollowUps,
+} from "../agent/lib/follow-ups";
 
 const DAY = 24 * 60 * 60 * 1000;
 const suffix = crypto.randomUUID().slice(0, 8);
@@ -319,5 +323,42 @@ describe("scanFollowUps", () => {
 		).toBe(false);
 		const kept = await db.followUp.findUniqueOrThrow({ where: { id: row.id } });
 		expect(kept.draftBody).toBe("Hi Zoe");
+	});
+
+	it("refuses agent redrafts after a mailbox draft request", async () => {
+		const zoe = await person("locked-zoe");
+		await message(zoe.id, EmailDirection.INBOUND, daysAgo(2));
+		await scanFollowUps({ force: true });
+		const row = await db.followUp.findFirstOrThrow({
+			where: { contactId: zoe.id },
+		});
+		await db.followUp.update({
+			where: { id: row.id },
+			data: {
+				status: FollowUpStatus.OPEN,
+				draftTaskId: null,
+				draftSubject: "Re: Website quote",
+				draftBody: "Approved text",
+				mailboxDraftAttemptedAt: new Date(),
+			},
+		});
+		const taskCount = await db.agentTask.count({
+			where: { contactId: zoe.id },
+		});
+		expect(await queueDraft(row)).toBe(false);
+		expect(
+			await saveFollowUpDraft(row.id, "new-session", {
+				subject: "Changed subject",
+				body: "Changed text",
+				note: "n",
+			}),
+		).toBe(false);
+		await scanFollowUps({ force: true });
+		const kept = await db.followUp.findUniqueOrThrow({ where: { id: row.id } });
+		expect(kept.status).toBe(FollowUpStatus.OPEN);
+		expect(kept.draftBody).toBe("Approved text");
+		expect(await db.agentTask.count({ where: { contactId: zoe.id } })).toBe(
+			taskCount,
+		);
 	});
 });

@@ -2,7 +2,7 @@
 
 import Warning from "@carbon/icons-react/es/Warning";
 import { authClient } from "@crm/auth/client";
-import { MICROSOFT_SYNC_SCOPES } from "@crm/auth/scopes";
+import { MICROSOFT_SYNC_SCOPES, OUTLOOK_DRAFT_SCOPE } from "@crm/auth/scopes";
 import { Alert, AlertDescription, AlertTitle } from "@crm/ui/components/alert";
 import {
 	AlertDialog,
@@ -68,12 +68,12 @@ function MicrosoftUnavailable() {
 	);
 }
 
-function ConnectMicrosoft({
+function MicrosoftConnectButton({
 	slug,
-	connectError,
+	label = "Connect",
 }: {
 	slug: string;
-	connectError?: string;
+	label?: string;
 }) {
 	const [pending, setPending] = useState(false);
 
@@ -89,7 +89,7 @@ function ConnectMicrosoft({
 
 		const { error } = await authClient.linkSocial({
 			provider: "microsoft",
-			scopes: [...MICROSOFT_SYNC_SCOPES],
+			scopes: [...MICROSOFT_SYNC_SCOPES, OUTLOOK_DRAFT_SCOPE],
 			callbackURL: `${origin}/${slug}/settings/connections/microsoft`,
 			errorCallbackURL: `${origin}/${slug}/settings/connections/microsoft?provider=microsoft`,
 		});
@@ -97,6 +97,45 @@ function ConnectMicrosoft({
 		if (error) fail(error.message);
 	}
 
+	return (
+		<Button
+			size="sm"
+			disabled={pending}
+			onClick={() => {
+				handleConnect().catch(() => fail());
+			}}
+			type="button"
+		>
+			{pending ? (
+				<Spinner data-icon="inline-start" />
+			) : (
+				<MicrosoftLogo data-icon="inline-start" className="size-4" />
+			)}
+			{label}
+		</Button>
+	);
+}
+
+function MicrosoftConnectError({ error }: { error: string }) {
+	return (
+		<Alert variant="destructive">
+			<Icon icon={Warning} />
+			<AlertTitle>Microsoft did not finish connecting</AlertTitle>
+			<AlertDescription>
+				{CONNECT_ERRORS.get(error) ??
+					"Microsoft returned an error before the connection was made. Try again."}
+			</AlertDescription>
+		</Alert>
+	);
+}
+
+function ConnectMicrosoft({
+	slug,
+	connectError,
+}: {
+	slug: string;
+	connectError?: string;
+}) {
 	return (
 		<Card>
 			<CardHeader>
@@ -107,39 +146,18 @@ function ConnectMicrosoft({
 					</div>
 				</CardTitle>
 				<CardDescription>
-					Read-only Outlook mail. Only conversations with companies in the CRM
-					are stored.
+					Outlook email sync. Approved follow-ups create mailbox drafts. You
+					send each message from Outlook.
 				</CardDescription>
 
 				<CardAction>
-					<Button
-						size="sm"
-						disabled={pending}
-						onClick={() => {
-							handleConnect().catch(() => fail());
-						}}
-						type="button"
-					>
-						{pending ? (
-							<Spinner data-icon="inline-start" />
-						) : (
-							<MicrosoftLogo data-icon="inline-start" className="size-4" />
-						)}
-						Connect
-					</Button>
+					<MicrosoftConnectButton slug={slug} />
 				</CardAction>
 			</CardHeader>
 
 			{connectError ? (
 				<CardContent>
-					<Alert variant="destructive">
-						<Icon icon={Warning} />
-						<AlertTitle>Microsoft did not finish connecting</AlertTitle>
-						<AlertDescription>
-							{CONNECT_ERRORS.get(connectError) ??
-								"Microsoft returned an error before the connection was made. Try again."}
-						</AlertDescription>
-					</Alert>
+					<MicrosoftConnectError error={connectError} />
 				</CardContent>
 			) : null}
 		</Card>
@@ -200,7 +218,7 @@ export function MicrosoftConnection({
 
 	if (!status.data) return null;
 
-	const { sources, hasRefreshToken, configured, linked, required } =
+	const { sources, hasRefreshToken, configured, linked, required, canDraft } =
 		status.data;
 
 	if (!configured) return <MicrosoftUnavailable />;
@@ -237,18 +255,24 @@ export function MicrosoftConnection({
 				</CardDescription>
 
 				<CardAction>
-					<Button
-						variant="contrast"
-						size="sm"
-						disabled={syncNow.isPending}
-						onClick={() => syncNow.mutate()}
-					>
-						{syncNow.isPending ? "Checking…" : "Check now"}
-					</Button>
+					<div className="flex items-center gap-2">
+						{!canDraft ? (
+							<MicrosoftConnectButton slug={slug} label="Enable drafts" />
+						) : null}
+						<Button
+							variant="contrast"
+							size="sm"
+							disabled={syncNow.isPending}
+							onClick={() => syncNow.mutate()}
+						>
+							{syncNow.isPending ? "Checking…" : "Check now"}
+						</Button>
+					</div>
 				</CardAction>
 			</CardHeader>
 
 			<CardContent>
+				{connectError ? <MicrosoftConnectError error={connectError} /> : null}
 				{!hasRefreshToken ? (
 					<Alert variant="destructive">
 						<Icon icon={Warning} />

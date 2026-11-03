@@ -1,5 +1,9 @@
 import { isMicrosoftConfigured } from "@crm/auth/env";
-import { MICROSOFT_PROVIDER_ID, signsInWithMicrosoft } from "@crm/auth/scopes";
+import {
+	MICROSOFT_PROVIDER_ID,
+	OUTLOOK_DRAFT_SCOPE,
+	signsInWithMicrosoft,
+} from "@crm/auth/scopes";
 import type { Db, Prisma } from "@crm/db";
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ActivityStampService } from "../crm/activity-stamp.service";
@@ -66,6 +70,7 @@ export class MicrosoftConnectionService {
 				) && sources.some((source) => source.connected),
 			required: signsInWithMicrosoft(accounts),
 			hasRefreshToken,
+			canDraft: granted.has(OUTLOOK_DRAFT_SCOPE),
 			sources,
 		};
 	}

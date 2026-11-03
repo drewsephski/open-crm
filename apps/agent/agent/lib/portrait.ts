@@ -1,5 +1,6 @@
 import { db } from "@crm/db";
-import { blobEnabled, isMirrored, mirror } from "@crm/db/blob";
+import { blobEnabled, mirror } from "@crm/db/blob";
+import { isMirrored } from "@crm/db/images";
 import { CONTEXT_DEV_PEOPLE, enabled } from "./capabilities";
 import { findPortrait, type PortraitSource } from "./portrait-sources";
 

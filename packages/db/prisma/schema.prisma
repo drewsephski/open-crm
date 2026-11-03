@@ -1786,6 +1786,12 @@ model FollowUp {
   editedById   String?
   editedBy     User?     @relation("FollowUpEditor", fields: [editedById], references: [id], onDelete: SetNull)
 
+  mailboxDraftAttemptedAt DateTime?
+  mailboxDraftId String?
+  mailboxDraftUserId String?
+  mailboxDraftProvider String?
+  mailboxDraftRecipient String?
+
   approvedById String?
   approvedBy   User?     @relation("FollowUpApprover", fields: [approvedById], references: [id], onDelete: SetNull)
   approvedAt   DateTime?

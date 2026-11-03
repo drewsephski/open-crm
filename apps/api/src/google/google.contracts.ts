@@ -42,6 +42,7 @@ export const googleConnectionStatusOutput = z.object({
 	linked: z.boolean(),
 	required: z.boolean(),
 	hasRefreshToken: z.boolean(),
+	canDraft: z.boolean(),
 	sources: z.array(googleSourceStatusOutput),
 });
 

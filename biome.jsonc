@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.5.6/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -67,6 +67,14 @@
 		}
 	},
 	"overrides": [
+		{
+			"includes": [
+				"packages/db/src/index.ts",
+				"packages/db/src/fields.ts",
+				"packages/telemetry/src/index.ts"
+			],
+			"linter": { "rules": { "performance": { "noBarrelFile": "off" } } }
+		},
 		{
 			"includes": ["apps/app/**"],
 			"linter": {

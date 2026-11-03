@@ -8,7 +8,7 @@ import {
 	RecordSource,
 } from "@crm/db";
 import { followUpActiveKey } from "@crm/db/follow-ups";
-import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
+import { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ConversionService } from "../src/currency/conversion.service";
 import { FollowUpsService } from "../src/follow-ups/follow-ups.service";
 import {
@@ -40,7 +40,8 @@ const agent = {
 
 const conversion = new ConversionService(db);
 const followUps = new FollowUpsService(db, conversion, agent);
-const imports = new ImportsService(db, conversion, agent);
+const importAgent = new AgentTriggerService(db);
+const imports = new ImportsService(conversion, importAgent);
 
 const SIGNAL = {
 	evidence: "email",
@@ -54,6 +55,27 @@ const SIGNAL = {
 } as const;
 
 async function clear() {
+	const contacts = await db.contact.findMany({
+		where: { email: { endsWith: `@${DOMAIN}` } },
+		select: { id: true },
+	});
+	const companies = await db.company.findMany({
+		where: { domain: DOMAIN },
+		select: { id: true },
+	});
+	const deals = await db.deal.findMany({
+		where: { ownerId: userId },
+		select: { id: true },
+	});
+	await db.agentTask.deleteMany({
+		where: {
+			OR: [
+				{ contactId: { in: contacts.map((row) => row.id) } },
+				{ companyId: { in: companies.map((row) => row.id) } },
+				{ dealId: { in: deals.map((row) => row.id) } },
+			],
+		},
+	});
 	await db.followUp.deleteMany({
 		where: { contact: { email: { endsWith: `@${DOMAIN}` } } },
 	});
@@ -185,7 +207,58 @@ describe("ImportsService", () => {
 		expect(again.contactsCreated).toBe(0);
 		expect(again.contactsUpdated).toBe(1);
 		expect(again.dealsCreated).toBe(0);
-		expect(scans.length).toBeGreaterThanOrEqual(2);
+		const events = await db.agentTask.findMany({
+			where: {
+				kind: "agent-event",
+				OR: [
+					{ contactId: contact.id },
+					{ companyId: contact.companyId },
+					{ dealId: contact.deals[0]?.dealId },
+				],
+			},
+			select: { reason: true },
+		});
+		expect(events.map((event) => event.reason).sort()).toEqual([
+			"company.created",
+			"contact.created",
+			"deal.created",
+		]);
+		expect(
+			await db.agentTask.count({
+				where: { contactId: contact.id, kind: "identify" },
+			}),
+		).toBe(0);
+	});
+
+	it("emits deal.closed once for an imported closed deal", async () => {
+		const input = {
+			rows: [
+				{
+					email: `closed@${DOMAIN}`,
+					companyName: "Closed Studio",
+					website: DOMAIN,
+					dealName: "Completed project",
+					dealStage: "Closed won",
+				},
+			],
+			firstRow: 2,
+			research: false,
+		};
+		expect((await imports.contacts(input, userId)).dealsCreated).toBe(1);
+		expect((await imports.contacts(input, userId)).dealsCreated).toBe(0);
+		const deal = await db.deal.findFirstOrThrow({
+			where: { name: "Completed project", ownerId: userId },
+		});
+		expect(deal.stage).toBe(DealStage.CLOSED_WON);
+		expect(deal.closedAt).not.toBeNull();
+		const events = await db.agentTask.findMany({
+			where: { kind: "agent-event", dealId: deal.id },
+			select: { reason: true },
+		});
+		expect(events.map((event) => event.reason).sort()).toEqual([
+			"deal.closed",
+			"deal.created",
+		]);
 	});
 });
 
@@ -211,6 +284,57 @@ describe("FollowUpsService", () => {
 		expect(stored.approvedById).toBe(userId);
 		expect(stored.draftBody).toBe("Hi, any thoughts?");
 		expect(stored.activeKey).not.toBeNull();
+	});
+
+	it("keeps mailbox draft text immutable after snoozing and renewed approval", async () => {
+		const row = await followUp("mailbox-locked");
+		const draft = {
+			id: row.id,
+			subject: "Re: Quote",
+			body: "The approved message.",
+		};
+		await followUps.approve(draft, userId);
+		await db.followUp.update({
+			where: { id: row.id },
+			data: {
+				mailboxDraftAttemptedAt: new Date(),
+				mailboxDraftId: "saved-provider-draft",
+				mailboxDraftUserId: userId,
+				mailboxDraftProvider: "gmail",
+			},
+		});
+		await followUps.snooze(row.id, 3);
+		await expect(followUps.requestDraft(row.id)).rejects.toThrow(
+			"mailbox draft",
+		);
+		await db.followUp.update({
+			where: { id: row.id },
+			data: { status: FollowUpStatus.READY },
+		});
+		await expect(followUps.requestDraft(row.id)).rejects.toThrow(
+			"mailbox draft",
+		);
+		expect(await importAgent.followUpDraftRequested(row)).toBe(false);
+		expect(
+			await db.agentTask.count({ where: { contactId: row.contactId } }),
+		).toBe(0);
+		await expect(
+			followUps.saveDraft({ ...draft, body: "Changed text." }, userId),
+		).rejects.toThrow("mailbox draft");
+		await expect(
+			followUps.approve({ ...draft, body: "Changed text." }, userId),
+		).rejects.toThrow("Keep the approved text");
+		await expect(followUps.approve(draft, "another-user")).rejects.toThrow(
+			"Keep the approved text",
+		);
+		expect((await followUps.approve(draft, userId)).status).toBe(
+			FollowUpStatus.APPROVED,
+		);
+		const stored = await db.followUp.findUniqueOrThrow({
+			where: { id: row.id },
+		});
+		expect(stored.draftBody).toBe(draft.body);
+		expect(stored.mailboxDraftId).toBe("saved-provider-draft");
 	});
 
 	it("marks sent and frees the person for future follow-ups", async () => {

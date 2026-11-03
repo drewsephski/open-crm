@@ -3,7 +3,7 @@
 import Launch from "@carbon/icons-react/es/Launch";
 import Warning from "@carbon/icons-react/es/Warning";
 import { authClient } from "@crm/auth/client";
-import { SYNC_SCOPES } from "@crm/auth/scopes";
+import { GMAIL_DRAFT_SCOPE, SYNC_SCOPES } from "@crm/auth/scopes";
 import {
 	Alert,
 	AlertAction,
@@ -130,12 +130,12 @@ const CONNECT_ERRORS = new Map([
 	],
 ]);
 
-function ConnectGoogle({
+function GoogleConnectButton({
 	slug,
-	connectError,
+	label = "Connect",
 }: {
 	slug: string;
-	connectError?: string;
+	label?: string;
 }) {
 	const [pending, setPending] = useState(false);
 
@@ -151,7 +151,7 @@ function ConnectGoogle({
 
 		const { error } = await authClient.linkSocial({
 			provider: "google",
-			scopes: [...SYNC_SCOPES],
+			scopes: [...SYNC_SCOPES, GMAIL_DRAFT_SCOPE],
 			callbackURL: `${origin}/${slug}/settings/connections/google`,
 			errorCallbackURL: `${origin}/${slug}/settings/connections/google?provider=google`,
 		});
@@ -159,6 +159,45 @@ function ConnectGoogle({
 		if (error) fail(error.message);
 	}
 
+	return (
+		<Button
+			size="sm"
+			disabled={pending}
+			onClick={() => {
+				handleConnect().catch(() => fail());
+			}}
+			type="button"
+		>
+			{pending ? (
+				<Spinner data-icon="inline-start" />
+			) : (
+				<GoogleLogo data-icon="inline-start" className="size-4" />
+			)}
+			{label}
+		</Button>
+	);
+}
+
+function GoogleConnectError({ error }: { error: string }) {
+	return (
+		<Alert variant="destructive">
+			<Icon icon={Warning} />
+			<AlertTitle>Google did not finish connecting</AlertTitle>
+			<AlertDescription>
+				{CONNECT_ERRORS.get(error) ??
+					"Google returned an error before the connection was made. Try again."}
+			</AlertDescription>
+		</Alert>
+	);
+}
+
+function ConnectGoogle({
+	slug,
+	connectError,
+}: {
+	slug: string;
+	connectError?: string;
+}) {
 	return (
 		<Card>
 			<CardHeader>
@@ -169,39 +208,18 @@ function ConnectGoogle({
 					</div>
 				</CardTitle>
 				<CardDescription>
-					Read-only Gmail and Calendar. Only conversations with companies in the
-					CRM are stored.
+					Gmail and Calendar sync. Approved follow-ups create mailbox drafts.
+					You send each message from Gmail.
 				</CardDescription>
 
 				<CardAction>
-					<Button
-						size="sm"
-						disabled={pending}
-						onClick={() => {
-							handleConnect().catch(() => fail());
-						}}
-						type="button"
-					>
-						{pending ? (
-							<Spinner data-icon="inline-start" />
-						) : (
-							<GoogleLogo data-icon="inline-start" className="size-4" />
-						)}
-						Connect
-					</Button>
+					<GoogleConnectButton slug={slug} />
 				</CardAction>
 			</CardHeader>
 
 			{connectError ? (
 				<CardContent>
-					<Alert variant="destructive">
-						<Icon icon={Warning} />
-						<AlertTitle>Google did not finish connecting</AlertTitle>
-						<AlertDescription>
-							{CONNECT_ERRORS.get(connectError) ??
-								"Google returned an error before the connection was made. Try again."}
-						</AlertDescription>
-					</Alert>
+					<GoogleConnectError error={connectError} />
 				</CardContent>
 			) : null}
 		</Card>
@@ -275,7 +293,7 @@ export function GoogleConnection({
 
 	if (!status.data) return null;
 
-	const { sources, hasRefreshToken, configured, linked, required } =
+	const { sources, hasRefreshToken, configured, linked, required, canDraft } =
 		status.data;
 
 	if (!configured) return <GoogleUnavailable />;
@@ -311,18 +329,24 @@ export function GoogleConnection({
 				</CardDescription>
 
 				<CardAction>
-					<Button
-						variant="contrast"
-						size="sm"
-						disabled={syncNow.isPending}
-						onClick={() => syncNow.mutate()}
-					>
-						{syncNow.isPending ? "Checking…" : "Check now"}
-					</Button>
+					<div className="flex items-center gap-2">
+						{!canDraft ? (
+							<GoogleConnectButton slug={slug} label="Enable drafts" />
+						) : null}
+						<Button
+							variant="contrast"
+							size="sm"
+							disabled={syncNow.isPending}
+							onClick={() => syncNow.mutate()}
+						>
+							{syncNow.isPending ? "Checking…" : "Check now"}
+						</Button>
+					</div>
 				</CardAction>
 			</CardHeader>
 
 			<CardContent>
+				{connectError ? <GoogleConnectError error={connectError} /> : null}
 				{!hasRefreshToken ? (
 					<Alert variant="destructive" attention={insistence}>
 						<Icon icon={Warning} />
