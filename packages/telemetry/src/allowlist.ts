@@ -16,7 +16,7 @@ export const ALLOWED_PROPERTIES = [
 	"cap_redis",
 	"cap_agent_bridge",
 	"cap_cron_secret",
-	"cap_ai_gateway",
+	"cap_anthropic",
 	"cap_google_oauth",
 	"cap_sso_provider",
 	"cap_tracking",

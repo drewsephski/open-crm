@@ -58,7 +58,7 @@ export class SettingsService {
 
 		if (!models) {
 			throw new BadRequestException(
-				"Could not reach the AI Gateway to check that model. Try again in a moment.",
+				"Could not reach the model catalog. Try again in a moment.",
 			);
 		}
 
@@ -66,7 +66,7 @@ export class SettingsService {
 
 		if (!chosen) {
 			throw new BadRequestException(
-				`The AI Gateway does not serve a tool-using model called "${modelId}".`,
+				`The Anthropic model catalog does not include a tool-using model called "${modelId}".`,
 			);
 		}
 

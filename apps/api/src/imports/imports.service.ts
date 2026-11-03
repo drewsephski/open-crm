@@ -117,7 +117,7 @@ export class ImportsService {
 			const line = input.firstRow + index;
 			const email = normalizeEmail(row.email ?? "");
 
-			if (!email || !email.includes("@")) {
+			if (!email?.includes("@")) {
 				output.skipped.push({
 					row: line,
 					reason: "No email address. Follow-ups need one.",

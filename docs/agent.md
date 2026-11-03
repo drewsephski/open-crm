@@ -11,14 +11,21 @@ are in `docs/setup.md`.
 
 ## Model
 
-Default `zai/glm-5.2-fast`; `DEFAULT_AGENT_MODEL` in `@crm/db/settings` because the
+Default `anthropic/claude-haiku-5.5`; `DEFAULT_AGENT_MODEL` in `@crm/db/settings` because the
 agent and the API both need it.
 
 - **A row (`AppSetting`), not an env var**, via `defineDynamic` on `session.started`.
-  Open conversations keep their model — prompt caches are per model.
+  `lib/model.ts` stores the selection in durable session state.
+  Each `step.started` returns an `@ai-sdk/anthropic` model instance.
+  The provider receives native IDs, such as `claude-haiku-5-5`.
+  Anthropic calls require `ANTHROPIC_API_KEY` in development and deployments.
+  New sessions replace saved choices from other providers with the default.
+  Existing sessions acquire durable model state at their next step.
 - **`lib/model.ts` always sends `modelContextWindowTokens`**; eve never inherits it.
 - **A failed read logs and keeps the compiled fallback.** Never throws.
-- **The chooser offers only `tool-use` models** (`ModelCatalogService`).
+- **The chooser offers only Anthropic `tool-use` models** (`ModelCatalogService`).
+  The public AI Gateway catalog supplies metadata only. Batch variants are excluded.
+  Model inference bypasses AI Gateway.
 - **Not a frontier model, deliberately** — refusing wrong answers is enforced by the
   tools and evidence model, not model strength.
 

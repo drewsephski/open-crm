@@ -8,7 +8,7 @@ import {
 export const SETTINGS_ID = "app";
 
 export const DEFAULT_AGENT_MODEL = {
-	id: "zai/glm-5.2-fast",
+	id: "anthropic/claude-haiku-5.5",
 	contextWindowTokens: 1_000_000,
 } as const;
 
@@ -24,7 +24,7 @@ export async function readAgentModel(db: Db): Promise<AgentModelSetting> {
 		select: { agentModelId: true, agentModelContextWindow: true },
 	});
 
-	if (!row?.agentModelId) {
+	if (!row?.agentModelId?.startsWith("anthropic/")) {
 		return { ...DEFAULT_AGENT_MODEL, isDefault: true };
 	}
 

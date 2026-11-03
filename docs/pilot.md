@@ -74,8 +74,8 @@ bun run --filter=agent follow-ups:scan  # detection, without waiting for the tic
 
 Remove the demo data with `bun run --filter=@crm/db db:demo -- --reset`.
 
-Drafts need the agent running with a model (`AI_GATEWAY_API_KEY`, or OIDC on
-Vercel). Without it every follow-up still appears, and the rep writes the draft.
+Drafts need the agent running with `ANTHROPIC_API_KEY` for direct Anthropic model calls.
+Without it every follow-up still appears, and the rep writes the draft.
 
 ## Onboarding a paying pilot
 
